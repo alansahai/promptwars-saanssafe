@@ -241,8 +241,8 @@ def test_inversion_requires_two_flags():
     detected, _ = _check_inversion(
         wind_speed_ms=0.5,
         boundary_layer_m=600.0,  # not low BLH
-        humidity_pct=50.0,       # not high
-        temp_c=15.0,             # not cold
+        humidity_pct=50.0,  # not high
+        temp_c=15.0,  # not cold
     )
     assert not detected
 
@@ -264,19 +264,22 @@ def test_inversion_with_none_values():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("score,expected_level", [
-    (0.0, "Low"),
-    (10.0, "Low"),
-    (20.0, "Low"),
-    (21.0, "Moderate"),
-    (40.0, "Moderate"),
-    (41.0, "High"),
-    (60.0, "High"),
-    (61.0, "Severe"),
-    (80.0, "Severe"),
-    (81.0, "Emergency"),
-    (100.0, "Emergency"),
-])
+@pytest.mark.parametrize(
+    "score,expected_level",
+    [
+        (0.0, "Low"),
+        (10.0, "Low"),
+        (20.0, "Low"),
+        (21.0, "Moderate"),
+        (40.0, "Moderate"),
+        (41.0, "High"),
+        (60.0, "High"),
+        (61.0, "Severe"),
+        (80.0, "Severe"),
+        (81.0, "Emergency"),
+        (100.0, "Emergency"),
+    ],
+)
 def test_score_to_level_boundaries(score, expected_level):
     assert _score_to_level(score) == expected_level
 

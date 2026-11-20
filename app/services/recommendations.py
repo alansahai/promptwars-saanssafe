@@ -24,7 +24,7 @@ SUSTAINABLE_ALTERNATIVES: list[dict] = [
         ),
         "from_modes": ["car"],
         "to_mode": "metro",
-        "exposure_change_pct": -40.0,     # estimated reduction in commute PM2.5 dose
+        "exposure_change_pct": -40.0,  # estimated reduction in commute PM2.5 dose
         "emission_change_gco2e_per_km": -167.0,  # 192 - 25
         "community_note": "Every car switched to metro removes ~192 gCO2e/km from road emissions.",
         "effort": "medium",
@@ -192,8 +192,10 @@ def get_sustainable_alternatives(
         # Include if relevant to commute mode or fuel
         if from_modes and profile.commute_mode not in from_modes and not from_fuels:
             continue
-        if from_fuels and profile.cooking_fuel not in from_fuels and (
-            not from_modes or profile.commute_mode not in from_modes
+        if (
+            from_fuels
+            and profile.cooking_fuel not in from_fuels
+            and (not from_modes or profile.commute_mode not in from_modes)
         ):
             continue
 

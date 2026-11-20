@@ -21,14 +21,14 @@ from app.schemas import HouseholdProfile, SimulateAction, SimulateResponse
 
 # --- Constants ---
 _MINUTES_PER_DAY = 1440.0
-_WAKING_HOURS = 16   # hours awake
+_WAKING_HOURS = 16  # hours awake
 _SLEEPING_HOURS = 8  # hours asleep
 
 # Approximate minutes spent in each microenvironment per day (default profile)
-_MINUTES_INDOOR_WAKING = 540.0   # 9 hours indoors awake
-_MINUTES_OUTDOOR = 120.0         # 2 hours outdoor
-_MINUTES_IN_TRANSIT = 60.0       # 1 hour in transit
-_MINUTES_SLEEPING = 480.0        # 8 hours sleeping (indoor)
+_MINUTES_INDOOR_WAKING = 540.0  # 9 hours indoors awake
+_MINUTES_OUTDOOR = 120.0  # 2 hours outdoor
+_MINUTES_IN_TRANSIT = 60.0  # 1 hour in transit
+_MINUTES_SLEEPING = 480.0  # 8 hours sleeping (indoor)
 
 # Indoor concentration ≈ outdoor × infiltration factor
 # In-vehicle concentration ≈ outdoor × 0.5 (partial filtration)

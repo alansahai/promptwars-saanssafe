@@ -19,14 +19,17 @@ from app.services.routine_planner import (
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("aqi,expected", [
-    (0.0, "safe"),
-    (100.0, "safe"),
-    (100.1, "caution"),
-    (150.0, "caution"),
-    (150.1, "avoid"),
-    (500.0, "avoid"),
-])
+@pytest.mark.parametrize(
+    "aqi,expected",
+    [
+        (0.0, "safe"),
+        (100.0, "safe"),
+        (100.1, "caution"),
+        (150.0, "caution"),
+        (150.1, "avoid"),
+        (500.0, "avoid"),
+    ],
+)
 def test_tag_hour_boundaries(aqi, expected):
     assert tag_hour(aqi) == expected
 
@@ -77,7 +80,12 @@ def test_build_hourly_forecast_short_input():
 
 def _make_hourly(aqi_by_hour: dict[int, float]) -> list[HourlyAQI]:
     return [
-        HourlyAQI(hour=h, aqi=aqi_by_hour.get(h, 100.0), pm25=25.0, tag=tag_hour(aqi_by_hour.get(h, 100.0)))
+        HourlyAQI(
+            hour=h,
+            aqi=aqi_by_hour.get(h, 100.0),
+            pm25=25.0,
+            tag=tag_hour(aqi_by_hour.get(h, 100.0)),
+        )
         for h in range(24)
     ]
 
@@ -109,12 +117,15 @@ def test_find_best_window_empty():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("aqi,expected_substr", [
-    (50.0, "No mask"),
-    (120.0, "Sensitive"),
-    (160.0, "N95"),
-    (250.0, "essential"),
-])
+@pytest.mark.parametrize(
+    "aqi,expected_substr",
+    [
+        (50.0, "No mask"),
+        (120.0, "Sensitive"),
+        (160.0, "N95"),
+        (250.0, "essential"),
+    ],
+)
 def test_mask_recommendation(aqi, expected_substr):
     rec = _mask_recommendation(aqi)
     assert expected_substr.lower() in rec.lower()
@@ -156,7 +167,14 @@ def test_routine_safe_conditions_no_skip_exercise():
     hourly = [HourlyAQI(hour=h, aqi=50.0, pm25=12.0, tag="safe") for h in range(24)]
     tasks = build_daily_routine(hourly, profile)
     # Should recommend morning walk
-    morning_tasks = [t for t in tasks if "walk" in t["task"].lower() or "jog" in t["task"].lower() or "exercise" in t["task"].lower() or "Best window" in t["task"]]
+    morning_tasks = [
+        t
+        for t in tasks
+        if "walk" in t["task"].lower()
+        or "jog" in t["task"].lower()
+        or "exercise" in t["task"].lower()
+        or "Best window" in t["task"]
+    ]
     assert len(morning_tasks) >= 1
 
 
@@ -165,7 +183,9 @@ def test_routine_severe_conditions_no_outdoor_exercise():
     hourly = [HourlyAQI(hour=h, aqi=250.0, pm25=160.0, tag="avoid") for h in range(24)]
     tasks = build_daily_routine(hourly, profile)
     # Should recommend staying indoors
-    indoor_tasks = [t for t in tasks if "indoor" in t["task"].lower() or "skip" in t["task"].lower()]
+    indoor_tasks = [
+        t for t in tasks if "indoor" in t["task"].lower() or "skip" in t["task"].lower()
+    ]
     assert len(indoor_tasks) >= 1
 
 

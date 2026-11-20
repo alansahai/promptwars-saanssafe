@@ -19,10 +19,10 @@ class AQIBand(TypedDict):
     min_aqi: float
     max_aqi: float
     label: str
-    color: str          # CSS hex color
-    icon: str           # single emoji
+    color: str  # CSS hex color
+    icon: str  # single emoji
     text_description: str
-    level_name: str     # maps to risk engine level names
+    level_name: str  # maps to risk engine level names
 
 
 # ---------------------------------------------------------------------------

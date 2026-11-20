@@ -21,11 +21,11 @@ class Measure(TypedDict, total=False):
     description: str
     cost_tier: Literal["free", "low", "medium", "high"]
     effort: Literal["easy", "medium", "hard"]
-    pm25_reduction_pct: float          # estimated % reduction in room PM2.5
+    pm25_reduction_pct: float  # estimated % reduction in room PM2.5
     applicable_risk_levels: list[str]  # which risk levels trigger this
-    applicable_budget: list[str]       # ["low","medium","high"]
+    applicable_budget: list[str]  # ["low","medium","high"]
     source_note: str
-    myth_bust: str | None              # optional myth-busting note
+    myth_bust: str | None  # optional myth-busting note
 
 
 MEASURES: list[Measure] = [
@@ -207,9 +207,7 @@ MEASURES: list[Measure] = [
         "pm25_reduction_pct": 80.0,
         "applicable_risk_levels": ["Moderate", "High", "Severe", "Emergency"],
         "applicable_budget": ["medium", "high"],
-        "source_note": (
-            "WHO Household Air Pollution (2023); HAPIT model; Clean Cooking Alliance."
-        ),
+        "source_note": ("WHO Household Air Pollution (2023); HAPIT model; Clean Cooking Alliance."),
         "myth_bust": None,
     },
     {
@@ -226,9 +224,7 @@ MEASURES: list[Measure] = [
         "pm25_reduction_pct": 90.0,  # personal inhaled dose reduction
         "applicable_risk_levels": ["High", "Severe", "Emergency"],
         "applicable_budget": ["low", "medium", "high"],
-        "source_note": (
-            "Langrish et al. (2012) Circulation; WHO interim guidance on masks."
-        ),
+        "source_note": ("Langrish et al. (2012) Circulation; WHO interim guidance on masks."),
         "myth_bust": (
             "⚠️ NOTE: Cloth masks provide little PM2.5 protection. "
             "Only N95/KN95/FFP2 or better reduces fine particle inhalation significantly."
@@ -278,7 +274,8 @@ def get_measures_for_profile(
 
     # Sort by bang-per-buck (higher reduction / higher cost weight → lower rank)
     filtered.sort(
-        key=lambda x: x.get("pm25_reduction_pct", 0) / cost_weights.get(x.get("cost_tier", "medium"), 2),
+        key=lambda x: x.get("pm25_reduction_pct", 0)
+        / cost_weights.get(x.get("cost_tier", "medium"), 2),
         reverse=True,
     )
     return filtered

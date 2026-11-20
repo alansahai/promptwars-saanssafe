@@ -73,6 +73,7 @@ async def geocode(
     safe_q = sanitise_and_check(q, max_length=100)
     results = await air_data.geocode(safe_q)
     from app.schemas import GeocodeResult  # avoid circular at module level
+
     return GeocodeResponse(
         results=[
             GeocodeResult(
@@ -210,7 +211,9 @@ async def simulate(body: SimulateRequest) -> SimulateResponse:
         SimulateResponse with PM2.5 dose and CO2e metrics.
     """
     aqi_full = await air_data.fetch_air_quality(body.location.lat, body.location.lon)
-    conditions = air_data.extract_current_conditions(aqi_full, {}, hour=datetime.datetime.now().hour)
+    conditions = air_data.extract_current_conditions(
+        aqi_full, {}, hour=datetime.datetime.now().hour
+    )
 
     return simulate_impact(
         outdoor_pm25=conditions["current_pm25"],

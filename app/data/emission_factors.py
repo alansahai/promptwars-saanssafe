@@ -12,7 +12,7 @@ from typing import TypedDict
 class EmissionFactor(TypedDict):
     """CO2-equivalent emission factor for a transport mode."""
 
-    gco2e_per_km: float   # grams CO2-equivalent per kilometre, single occupant
+    gco2e_per_km: float  # grams CO2-equivalent per kilometre, single occupant
     source_note: str
 
 
@@ -90,9 +90,9 @@ def get_emission_factor(mode: str) -> float:
 # ---------------------------------------------------------------------------
 
 BREATHING_RATES_L_PER_MIN: dict[str, float] = {
-    "infant": 6.0,    # 0–2 years; WHO 2000 exposure factors
-    "child": 10.0,    # 3–11 years; moderate activity
-    "adult": 12.0,    # 18–64 years; light activity indoors
+    "infant": 6.0,  # 0–2 years; WHO 2000 exposure factors
+    "child": 10.0,  # 3–11 years; moderate activity
+    "adult": 12.0,  # 18–64 years; light activity indoors
     "elderly": 10.0,  # 65+; slightly reduced lung capacity
 }
 

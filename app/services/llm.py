@@ -62,8 +62,14 @@ OFF_TOPIC_REPLY = (
 )
 
 SEVERE_SYMPTOM_KEYWORDS = [
-    "chest pain", "can't breathe", "cannot breathe", "difficulty breathing",
-    "shortness of breath", "unconscious", "emergency", "ambulance",
+    "chest pain",
+    "can't breathe",
+    "cannot breathe",
+    "difficulty breathing",
+    "shortness of breath",
+    "unconscious",
+    "emergency",
+    "ambulance",
 ]
 
 
@@ -78,6 +84,7 @@ def _get_client():
         return None
     try:
         from google import genai  # type: ignore[import]
+
         return genai.Client(api_key=settings.gemini_api_key)
     except Exception as exc:
         logger.warning("Failed to initialise Gemini client: %s", exc)

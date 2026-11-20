@@ -151,6 +151,7 @@ def test_geocode_injection_rejected(client):
 
 def test_assess_success_no_gemini(client):
     """Full assessment with mocked Open-Meteo and no Gemini key."""
+
     # Patch _safe_get to return fixture data, bypassing the shared httpx client singleton.
     async def _mock_safe_get(url: str, params: dict) -> dict:
         if "air-quality-api.open-meteo.com" in url:
@@ -202,6 +203,16 @@ def test_assess_validation_error_bad_adults(client):
 @respx.mock
 def test_assess_validation_error_bad_enum(client):
     bad_profile = {**DELHI_PROFILE, "commute_mode": "spaceship"}
+    res = client.post(
+        "/api/assess",
+        json={"location": DELHI_LOCATION, "profile": bad_profile},
+    )
+    assert res.status_code == 422
+
+
+def test_assess_validation_error_unknown_field(client):
+    """Ensure strict Pydantic extra='forbid' rejects unexpected injection fields."""
+    bad_profile = {**DELHI_PROFILE, "unexpected_injected_field": "exploit"}
     res = client.post(
         "/api/assess",
         json={"location": DELHI_LOCATION, "profile": bad_profile},

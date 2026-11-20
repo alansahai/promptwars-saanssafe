@@ -14,11 +14,11 @@ from app.schemas import HourlyAQI, HouseholdProfile
 class TimelineTask(TypedDict):
     """A single timed action in the daily routine."""
 
-    time: str          # e.g. "06:00"
+    time: str  # e.g. "06:00"
     task: str
     reason: str
     icon: str
-    priority: int      # 1=high, 2=medium, 3=low
+    priority: int  # 1=high, 2=medium, 3=low
 
 
 # AQI thresholds for tagging
@@ -120,7 +120,9 @@ def _mask_recommendation(aqi: float) -> str:
     if aqi <= 150:
         return "Sensitive groups should wear an N95/FFP2 mask outdoors."
     if aqi <= 200:
-        return "Wear a well-fitted N95/FFP2 mask outdoors. Cloth masks offer minimal PM2.5 protection."
+        return (
+            "Wear a well-fitted N95/FFP2 mask outdoors. Cloth masks offer minimal PM2.5 protection."
+        )
     return "N95/FFP2 mask essential for all outdoor trips. Minimise outdoor time."
 
 
@@ -282,7 +284,9 @@ def build_daily_routine(
         )
 
     # --- Bedtime purifier ---
-    night_avg = sum(h.aqi for h in hourly if h.hour >= 22 or h.hour < 6) / max(1, sum(1 for h in hourly if h.hour >= 22 or h.hour < 6))
+    night_avg = sum(h.aqi for h in hourly if h.hour >= 22 or h.hour < 6) / max(
+        1, sum(1 for h in hourly if h.hour >= 22 or h.hour < 6)
+    )
     if profile.has_purifier:
         tasks.append(
             TimelineTask(

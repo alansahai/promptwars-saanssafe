@@ -8,14 +8,25 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+# ---------------------------------------------------------------------------
+# Base schema with strict validation
+# ---------------------------------------------------------------------------
+
+
+class StrictInputModel(BaseModel):
+    """Base model for input requests that rejects unknown/unexpected fields."""
+
+    model_config = ConfigDict(extra="forbid")
+
 
 # ---------------------------------------------------------------------------
 # Input schemas
 # ---------------------------------------------------------------------------
 
 
-class LocationRequest(BaseModel):
+class LocationRequest(StrictInputModel):
     """Geographic location for air-quality lookup."""
 
     lat: float = Field(..., ge=-90, le=90, description="Latitude in decimal degrees")
@@ -23,7 +34,7 @@ class LocationRequest(BaseModel):
     city_name: str = Field("", max_length=100, description="Human-readable city name")
 
 
-class HouseholdProfile(BaseModel):
+class HouseholdProfile(StrictInputModel):
     """Household characteristics that personalise the risk assessment.
 
     Sensitive fields (conditions) are used only for risk calculation and
@@ -51,9 +62,9 @@ class HouseholdProfile(BaseModel):
     uses_ac_or_cooler: bool = Field(False, description="Uses AC or evaporative cooler")
 
     # Commute
-    commute_mode: Literal[
-        "walk", "cycle", "two_wheeler", "car", "bus", "metro", "auto"
-    ] = Field("car", description="Primary commute mode")
+    commute_mode: Literal["walk", "cycle", "two_wheeler", "car", "bus", "metro", "auto"] = Field(
+        "car", description="Primary commute mode"
+    )
     commute_distance_km: float = Field(
         10.0, ge=0, le=100, description="One-way commute distance in km"
     )
@@ -61,9 +72,7 @@ class HouseholdProfile(BaseModel):
     school_run: bool = Field(False, description="Includes school drop-off/pick-up")
 
     # Outdoor activity
-    morning_walker_jogger: bool = Field(
-        False, description="Regular morning outdoor exercise"
-    )
+    morning_walker_jogger: bool = Field(False, description="Regular morning outdoor exercise")
 
     # Budget for recommendations
     budget: Literal["low", "medium", "high"] = Field(
@@ -76,14 +85,14 @@ class HouseholdProfile(BaseModel):
     )
 
 
-class AssessRequest(BaseModel):
+class AssessRequest(StrictInputModel):
     """Request body for /api/assess."""
 
     location: LocationRequest
     profile: HouseholdProfile
 
 
-class SimulateAction(BaseModel):
+class SimulateAction(StrictInputModel):
     """A single toggleable action in the What-If simulator."""
 
     action_id: str = Field(
@@ -95,7 +104,7 @@ class SimulateAction(BaseModel):
     enabled: bool = True
 
 
-class SimulateRequest(BaseModel):
+class SimulateRequest(StrictInputModel):
     """Request body for /api/simulate."""
 
     location: LocationRequest
@@ -103,14 +112,14 @@ class SimulateRequest(BaseModel):
     actions: list[SimulateAction] = Field(..., max_length=20)
 
 
-class ChatMessage(BaseModel):
+class ChatMessage(StrictInputModel):
     """A single turn in the conversation history."""
 
     role: Literal["user", "assistant"]
     content: str = Field(..., min_length=1, max_length=2000)
 
 
-class ChatRequest(BaseModel):
+class ChatRequest(StrictInputModel):
     """Request body for /api/chat."""
 
     location: LocationRequest

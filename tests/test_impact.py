@@ -195,11 +195,14 @@ def test_simulate_all_actions():
         has_purifier=False,
         cooking_fuel="lpg",
     )
-    actions = [SimulateAction(action_id=a["id"], enabled=True) for a in [
-        {"id": "add_air_purifier"},
-        {"id": "switch_commute_to_metro"},
-        {"id": "work_from_home_2_days"},
-    ]]
+    actions = [
+        SimulateAction(action_id=a["id"], enabled=True)
+        for a in [
+            {"id": "add_air_purifier"},
+            {"id": "switch_commute_to_metro"},
+            {"id": "work_from_home_2_days"},
+        ]
+    ]
     result = simulate_impact(outdoor_pm25=200.0, profile=profile, actions=actions)
     assert result.after_pm25_dose_ug < result.before_pm25_dose_ug
     assert result.after_co2e_week_g < result.before_co2e_week_g

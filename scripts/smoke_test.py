@@ -69,7 +69,9 @@ def run_smoke_test(base_url: str) -> None:
         data = r.json()
         check("results" in data, "results key present")
         check(len(data["results"]) > 0, "at least one result")
-        print(f"     First result: {data['results'][0].get('name')}, {data['results'][0].get('country')}")
+        print(
+            f"     First result: {data['results'][0].get('name')}, {data['results'][0].get('country')}"
+        )
 
         # 3. Assessment (Delhi demo)
         print("\n3. Full Assessment (Delhi Demo Profile):")
@@ -84,7 +86,9 @@ def run_smoke_test(base_url: str) -> None:
         check(len(data.get("hourly_forecast", [])) > 0, "hourly_forecast non-empty")
         print(f"     Risk level: {data['risk_level']} (score: {data['risk_score']})")
         print(f"     AQI: {data['current_aqi']}, AI generated: {data['ai_generated']}")
-        print(f"     Indoor hacks: {len(data['indoor_hacks'])}, Alternatives: {len(data.get('sustainable_alternatives', []))}")
+        print(
+            f"     Indoor hacks: {len(data['indoor_hacks'])}, Alternatives: {len(data.get('sustainable_alternatives', []))}"
+        )
 
     print("\n✅ All smoke tests passed!\n")
 

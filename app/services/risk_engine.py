@@ -24,8 +24,8 @@ from app.schemas import HouseholdProfile, RiskReason
 class RiskResult:
     """Output of the risk engine computation."""
 
-    risk_score: float                    # 0–100
-    risk_level: str                      # Low / Moderate / High / Severe / Emergency
+    risk_score: float  # 0–100
+    risk_level: str  # Low / Moderate / High / Severe / Emergency
     risk_color: str
     risk_icon: str
     risk_reasons: list[RiskReason]
@@ -37,10 +37,10 @@ class RiskResult:
 # ---------------------------------------------------------------------------
 
 LEVEL_META: dict[str, dict[str, str]] = {
-    "Low":       {"color": "#00e400", "icon": "🌿"},
-    "Moderate":  {"color": "#ffff00", "icon": "😐"},
-    "High":      {"color": "#ff7e00", "icon": "⚠️"},
-    "Severe":    {"color": "#8f3f97", "icon": "☣️"},
+    "Low": {"color": "#00e400", "icon": "🌿"},
+    "Moderate": {"color": "#ffff00", "icon": "😐"},
+    "High": {"color": "#ff7e00", "icon": "⚠️"},
+    "Severe": {"color": "#8f3f97", "icon": "☣️"},
     "Emergency": {"color": "#7e0023", "icon": "💀"},
 }
 

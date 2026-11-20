@@ -18,13 +18,16 @@ from app.services.llm import (
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("risk_level,expected_substr", [
-    ("Low", "good"),
-    ("Moderate", "Moderate"),
-    ("High", "High"),
-    ("Severe", "Severe"),
-    ("Emergency", "Emergency"),
-])
+@pytest.mark.parametrize(
+    "risk_level,expected_substr",
+    [
+        ("Low", "good"),
+        ("Moderate", "Moderate"),
+        ("High", "High"),
+        ("Severe", "Severe"),
+        ("Emergency", "Emergency"),
+    ],
+)
 def test_fallback_narrative_contains_risk_level(risk_level, expected_substr):
     context = {"risk_level": risk_level, "current_aqi": 150, "city_name": "Delhi"}
     result = fallback_assessment_narrative(context)
@@ -87,6 +90,7 @@ def test_generate_narrative_no_key_returns_none():
 
         # Reset module-level client
         import app.services.llm as llm_module
+
         llm_module._client = None
 
         result = generate_assessment_narrative(
@@ -104,6 +108,7 @@ def test_generate_chat_no_key_returns_none():
         mock_settings.return_value = settings
 
         import app.services.llm as llm_module
+
         llm_module._client = None
 
         result = generate_chat_reply(
@@ -138,12 +143,15 @@ def test_generate_narrative_sdk_exception_returns_none():
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("message", [
-    "I have chest pain and can't breathe",
-    "My father is unconscious",
-    "I need an ambulance",
-    "difficulty breathing",
-])
+@pytest.mark.parametrize(
+    "message",
+    [
+        "I have chest pain and can't breathe",
+        "My father is unconscious",
+        "I need an ambulance",
+        "difficulty breathing",
+    ],
+)
 def test_chat_severe_symptoms_escalate(message):
     """Severe symptom keywords should return emergency escalation message immediately."""
     with patch("app.services.llm._client_singleton") as mock_client_fn:
