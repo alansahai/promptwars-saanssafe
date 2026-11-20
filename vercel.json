@@ -1,5 +1,15 @@
 {
+  "functions": {
+    "api/**/*.py": {
+      "includeFiles": "app/**",
+      "maxDuration": 15
+    }
+  },
   "rewrites": [
+    {
+      "source": "/api/test",
+      "destination": "/api/test.py"
+    },
     {
       "source": "/api/:path*",
       "destination": "/api/index.py"
