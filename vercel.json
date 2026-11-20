@@ -1,13 +1,17 @@
 {
   "functions": {
-    "api/index.py": {
+    "api/*.py": {
       "maxDuration": 15
     }
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api"
+      "source": "/api/ping",
+      "destination": "/api/ping.py"
+    },
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index.py"
     }
   ],
   "headers": [
