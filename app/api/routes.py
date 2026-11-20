@@ -32,11 +32,30 @@ router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
+# API Root / Metadata
+# ---------------------------------------------------------------------------
+
+
+@router.get("/api", tags=["meta"])
+@router.get("/", tags=["meta"], include_in_schema=False)
+async def api_root() -> dict[str, str]:
+    """Root API endpoint returning basic service status."""
+    return {
+        "app": "SaansSafe",
+        "status": "online",
+        "version": "1.0.0",
+        "docs": "/api/docs",
+        "health": "/api/health",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Health check
 # ---------------------------------------------------------------------------
 
 
 @router.get("/api/health", response_model=HealthResponse, tags=["meta"])
+@router.get("/health", response_model=HealthResponse, tags=["meta"], include_in_schema=False)
 async def health(settings: Settings = Depends(get_settings)) -> HealthResponse:
     """Return application health status and Gemini availability.
 
@@ -59,6 +78,12 @@ async def health(settings: Settings = Depends(get_settings)) -> HealthResponse:
     "/api/geocode",
     response_model=GeocodeResponse,
     tags=["location"],
+)
+@router.get(
+    "/geocode",
+    response_model=GeocodeResponse,
+    tags=["location"],
+    include_in_schema=False,
 )
 async def geocode(
     q: str = Query(..., min_length=2, max_length=100),
@@ -94,6 +119,7 @@ async def geocode(
 
 
 @router.post("/api/assess", response_model=AssessmentResponse, tags=["assessment"])
+@router.post("/assess", response_model=AssessmentResponse, tags=["assessment"], include_in_schema=False)
 async def assess(
     body: AssessRequest,
     settings: Settings = Depends(get_settings),
@@ -204,6 +230,7 @@ async def assess(
 
 
 @router.post("/api/simulate", response_model=SimulateResponse, tags=["simulator"])
+@router.post("/simulate", response_model=SimulateResponse, tags=["simulator"], include_in_schema=False)
 async def simulate(body: SimulateRequest) -> SimulateResponse:
     """What-If impact simulator: before vs after chosen actions.
 
@@ -231,6 +258,7 @@ async def simulate(body: SimulateRequest) -> SimulateResponse:
 
 
 @router.post("/api/chat", response_model=ChatResponse, tags=["chat"])
+@router.post("/chat", response_model=ChatResponse, tags=["chat"], include_in_schema=False)
 async def chat(body: ChatRequest) -> ChatResponse:
     """Follow-up conversational Q&A grounded in the household's assessment.
 
