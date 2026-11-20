@@ -1,0 +1,10 @@
+tests/
+docs/
+.github/
+*.md
+!README.md
+.env*
+!.env.example
+requirements-dev.txt
+Makefile
+scripts/
