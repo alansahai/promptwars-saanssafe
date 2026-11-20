@@ -1,0 +1,36 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "RUF"]
+ignore = [
+  "E501",   # line too long (handled by formatter)
+  "B008",   # do not perform function calls in argument defaults (FastAPI Depends pattern)
+  "N802",   # function name should be lowercase (some SQLAlchemy patterns)
+  "RUF001", # ambiguous unicode chars in strings (en dash / multiplication sign in descriptions)
+  "RUF002", # ambiguous unicode chars in docstrings
+  "RUF003", # ambiguous unicode chars in comments
+  "SIM108", # ternary operator suggestion
+  "C408",   # dict() -> {} (style preference)
+  "PLW0603",# global statement (intentional module-level singleton)
+  "PLW2901",# overwritten loop variable
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]  # Allow assert in tests
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["tests/*", "scripts/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
