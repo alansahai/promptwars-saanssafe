@@ -93,6 +93,30 @@ function show(el) { if (el) el.hidden = false; }
 function hide(el) { if (el) el.hidden = true; }
 
 // ===== AQI GAUGE (canvas) =====
+let currentGaugeVal = 0;
+let gaugeAnimFrame = null;
+
+function animateGauge(targetAqi, duration = 850) {
+  if (gaugeAnimFrame) cancelAnimationFrame(gaugeAnimFrame);
+  const startVal = currentGaugeVal;
+  const startTime = performance.now();
+
+  function step(now) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    const ease = 1 - Math.pow(1 - progress, 3);
+    const val = startVal + (targetAqi - startVal) * ease;
+    drawGauge(val);
+    if (progress < 1) {
+      gaugeAnimFrame = requestAnimationFrame(step);
+    } else {
+      currentGaugeVal = targetAqi;
+      drawGauge(targetAqi);
+    }
+  }
+  gaugeAnimFrame = requestAnimationFrame(step);
+}
+
 function drawGauge(aqi) {
   const canvas = $("#aqi-gauge");
   if (!canvas) return;
@@ -100,17 +124,28 @@ function drawGauge(aqi) {
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
 
+  const isDark = document.documentElement.dataset.theme === "dark" || 
+                 window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const needleColor = isDark ? "#ffffff" : "#0f172a";
+
   const cx = w / 2, cy = h - 10;
   const r = Math.min(cx, cy) - 10;
 
+  // Background track arc
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, Math.PI, 2 * Math.PI);
+  ctx.lineWidth = 16;
+  ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
+  ctx.stroke();
+
   // AQI colour bands (angle: π to 2π)
   const bands = [
-    { max: 50, color: "#00e400" },
-    { max: 100, color: "#ffff00" },
-    { max: 150, color: "#ff7e00" },
-    { max: 200, color: "#ff0000" },
-    { max: 300, color: "#8f3f97" },
-    { max: 500, color: "#7e0023" },
+    { max: 50, color: "#10b981" },
+    { max: 100, color: "#84cc16" },
+    { max: 150, color: "#f59e0b" },
+    { max: 200, color: "#f97316" },
+    { max: 300, color: "#ef4444" },
+    { max: 500, color: "#7f1d1d" },
   ];
   let prevAngle = Math.PI;
   for (const band of bands) {
@@ -118,30 +153,34 @@ function drawGauge(aqi) {
     const endAngle = Math.PI + frac * Math.PI;
     ctx.beginPath();
     ctx.arc(cx, cy, r, prevAngle, endAngle);
-    ctx.lineWidth = 18;
+    ctx.lineWidth = 16;
     ctx.strokeStyle = band.color;
     ctx.stroke();
     prevAngle = endAngle;
   }
 
-  // Needle
+  // Needle with glow
   const fraction = Math.min(aqi, 500) / 500;
   const needleAngle = Math.PI + fraction * Math.PI;
+  ctx.save();
+  ctx.shadowColor = isDark ? "rgba(52, 211, 153, 0.8)" : "rgba(0, 0, 0, 0.3)";
+  ctx.shadowBlur = 10;
   ctx.beginPath();
   ctx.moveTo(cx, cy);
   ctx.lineTo(
-    cx + (r - 20) * Math.cos(needleAngle),
-    cy + (r - 20) * Math.sin(needleAngle)
+    cx + (r - 18) * Math.cos(needleAngle),
+    cy + (r - 18) * Math.sin(needleAngle)
   );
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = "#1a202c";
+  ctx.lineWidth = 3.5;
+  ctx.strokeStyle = needleColor;
   ctx.lineCap = "round";
   ctx.stroke();
+  ctx.restore();
 
   // Centre dot
   ctx.beginPath();
-  ctx.arc(cx, cy, 6, 0, 2 * Math.PI);
-  ctx.fillStyle = "#1a202c";
+  ctx.arc(cx, cy, 7, 0, 2 * Math.PI);
+  ctx.fillStyle = needleColor;
   ctx.fill();
 }
 
@@ -153,6 +192,11 @@ function drawSimChart(before, after) {
   const w = canvas.width, h = canvas.height;
   ctx.clearRect(0, 0, w, h);
 
+  const isDark = document.documentElement.dataset.theme === "dark" || 
+                 window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const textColor = isDark ? "#f8fafc" : "#0f172a";
+  const subtextColor = isDark ? "#94a3b8" : "#64748b";
+
   const maxVal = Math.max(before, after, 1);
   const barW = 100, gap = 60, startX = 80;
   const maxH = h - 50;
@@ -160,18 +204,28 @@ function drawSimChart(before, after) {
   const drawBar = (x, val, color, label) => {
     const bh = (val / maxVal) * maxH;
     const y = h - 30 - bh;
-    ctx.fillStyle = color;
-    ctx.fillRect(x, y, barW, bh);
-    ctx.fillStyle = "#1a202c";
+    
+    // Bar gradient
+    const grad = ctx.createLinearGradient(0, y, 0, y + bh);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, color + "aa");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barW, bh, [6, 6, 0, 0]);
+    ctx.fill();
+
+    // Value text
+    ctx.fillStyle = textColor;
     ctx.font = "bold 14px system-ui";
     ctx.textAlign = "center";
     ctx.fillText(val.toFixed(1), x + barW / 2, y - 8);
+    ctx.fillStyle = subtextColor;
     ctx.font = "12px system-ui";
     ctx.fillText(label, x + barW / 2, h - 10);
   };
 
   drawBar(startX, before, "#ef4444", "Before");
-  drawBar(startX + barW + gap, after, "#16a34a", "After");
+  drawBar(startX + barW + gap, after, "#10b981", "After");
 
   // Y-axis label
   ctx.save();
@@ -179,9 +233,28 @@ function drawSimChart(before, after) {
   ctx.rotate(-Math.PI / 2);
   ctx.textAlign = "center";
   ctx.font = "11px system-ui";
-  ctx.fillStyle = "#64748b";
+  ctx.fillStyle = subtextColor;
   ctx.fillText("PM2.5 µg/day", 0, 0);
   ctx.restore();
+}
+
+// ===== NUMBER ANIMATION HELPER =====
+function animateValue(el, start, end, duration = 800) {
+  if (!el) return;
+  let startTimestamp = null;
+  const step = (timestamp) => {
+    if (!startTimestamp) startTimestamp = timestamp;
+    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = Math.floor(start + eased * (end - start));
+    el.textContent = current;
+    if (progress < 1) {
+      window.requestAnimationFrame(step);
+    } else {
+      el.textContent = Math.round(end);
+    }
+  };
+  window.requestAnimationFrame(step);
 }
 
 // ===== HEAT STRIP =====
@@ -552,9 +625,20 @@ function renderAssessment(data) {
     }
   }
 
-  // Hero card
-  drawGauge(data.current_aqi);
-  $("#gauge-aqi-value").textContent = data.current_aqi.toFixed(0);
+  // Set hazard glow on gauge wrap
+  const aqi = data.current_aqi || 0;
+  let glowColor = "rgba(16, 185, 129, 0.4)";
+  if (aqi > 300) glowColor = "rgba(185, 28, 28, 0.6)";
+  else if (aqi > 200) glowColor = "rgba(168, 85, 247, 0.55)";
+  else if (aqi > 150) glowColor = "rgba(239, 68, 68, 0.55)";
+  else if (aqi > 100) glowColor = "rgba(249, 115, 22, 0.5)";
+  else if (aqi > 50) glowColor = "rgba(234, 179, 8, 0.45)";
+  const gaugeWrap = $(".gauge-wrap");
+  if (gaugeWrap) gaugeWrap.style.setProperty("--hazard-glow", glowColor);
+
+  // Hero card with smooth animated sweep
+  animateGauge(aqi, 850);
+  animateValue($("#gauge-aqi-value"), 0, aqi, 850);
   renderRiskBadge(data);
   $("#headline-text").textContent = data.headline;
   $("#summary-text").textContent = data.summary;
@@ -564,7 +648,13 @@ function renderAssessment(data) {
 
   renderReasons(data.risk_reasons || []);
 
-  show($("#hero-card"));
+  const heroCard = $("#hero-card");
+  if (heroCard) {
+    heroCard.classList.remove("fade-in-up", "stagger-1");
+    void heroCard.offsetWidth;
+    heroCard.classList.add("fade-in-up", "stagger-1");
+    show(heroCard);
+  }
 
   // Pollutants & Health Intelligence Grid
   const pm25 = data.current_pm25 ?? 0;
@@ -572,6 +662,9 @@ function renderAssessment(data) {
   const cigs = (pm25 / 22).toFixed(1);
   const pCard = $("#pollutants-card");
   if (pCard) {
+    pCard.classList.remove("fade-in-up", "stagger-2");
+    void pCard.offsetWidth;
+    pCard.classList.add("fade-in-up", "stagger-2");
     $("#val-pm25").textContent = `${pm25.toFixed(1)} µg/m³`;
     $("#val-pm10").textContent = `${pm10.toFixed(1)} µg/m³`;
     $("#val-cigs").textContent = `≈ ${cigs} / day`;
@@ -657,7 +750,13 @@ function renderAssessment(data) {
   renderHacks(data.indoor_hacks || []);
   renderAlternatives(data.sustainable_alternatives || []);
 
-  show($("#tabs-wrap"));
+  const tabsWrap = $("#tabs-wrap");
+  if (tabsWrap) {
+    tabsWrap.classList.remove("fade-in-up", "stagger-3");
+    void tabsWrap.offsetWidth;
+    tabsWrap.classList.add("fade-in-up", "stagger-3");
+    show(tabsWrap);
+  }
   show($("#print-actions"));
 
   // Set up simulator
@@ -754,17 +853,17 @@ function loadDemo() {
 
   const input = $("#city-search");
   if (input) input.value = "New Delhi, India";
-  const disp = $("#location-display");
-  if (disp) show(disp);
+  showLocationBanner("New Delhi, India (28.61°, 77.21°)");
 
   // Auto-run
   runAssessment();
 }
 
-// ===== ACCESSIBILITY TOGGLES =====
+// ===== ACCESSIBILITY & THEME CONTROLS =====
 function initA11yToggles() {
   const btnLarge = $("#btn-large-text");
   const btnHC = $("#btn-high-contrast");
+  const btnTheme = $("#btn-theme-toggle");
 
   btnLarge?.addEventListener("click", () => {
     const isLarge = document.documentElement.dataset.large === "true";
@@ -778,10 +877,114 @@ function initA11yToggles() {
     btnHC.setAttribute("aria-pressed", String(!isHC));
   });
 
-  // Dark mode preference
-  if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-    document.documentElement.dataset.theme = "dark";
+  const updateThemeUI = (theme) => {
+    const icon = btnTheme?.querySelector(".theme-icon");
+    if (icon) icon.textContent = theme === "dark" ? "🌙" : "☀️";
+    if (btnTheme) {
+      btnTheme.setAttribute("aria-pressed", String(theme === "dark"));
+      btnTheme.setAttribute("title", theme === "dark" ? "Switch to light mode" : "Switch to dark mode");
+    }
+  };
+
+  const savedTheme = localStorage.getItem("saanssafe_theme");
+  const initialTheme = savedTheme || "dark";
+  document.documentElement.dataset.theme = initialTheme;
+  updateThemeUI(initialTheme);
+
+  btnTheme?.addEventListener("click", () => {
+    const current = document.documentElement.dataset.theme || "dark";
+    const next = current === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("saanssafe_theme", next);
+    updateThemeUI(next);
+    if (state.assessment) {
+      drawGauge(state.assessment.current_aqi);
+    }
+  });
+}
+
+// ===== AMBIENT PARTICLES CANVAS =====
+function initAmbientCanvas() {
+  const canvas = $("#ambient-canvas");
+  if (!canvas) return;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  const ctx = canvas.getContext("2d");
+  const parent = canvas.parentElement;
+  let w = (canvas.width = parent?.offsetWidth || canvas.offsetWidth || 900);
+  let h = (canvas.height = parent?.offsetHeight || canvas.offsetHeight || 320);
+
+  const particleCount = 45;
+  const particles = Array.from({ length: particleCount }, () => ({
+    x: Math.random() * w,
+    y: Math.random() * h,
+    r: Math.random() * 2.2 + 1,
+    dx: (Math.random() - 0.5) * 0.4,
+    dy: -Math.random() * 0.35 - 0.1,
+    alpha: Math.random() * 0.6 + 0.25,
+    hue: Math.random() > 0.45 ? 160 : 195,
+  }));
+
+  let mouse = { x: -1000, y: -1000 };
+  parent?.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+  });
+  parent?.addEventListener("mouseleave", () => {
+    mouse.x = -1000;
+    mouse.y = -1000;
+  });
+
+  function animate() {
+    ctx.clearRect(0, 0, w, h);
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.x += p.dx;
+      p.y += p.dy;
+
+      const mdx = p.x - mouse.x;
+      const mdy = p.y - mouse.y;
+      const mdist = Math.hypot(mdx, mdy);
+      if (mdist < 70) {
+        p.x += (mdx / mdist) * 1.5;
+        p.y += (mdy / mdist) * 1.5;
+      }
+
+      if (p.y < -10) p.y = h + 10;
+      if (p.x < -10) p.x = w + 10;
+      if (p.x > w + 10) p.x = -10;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${p.hue}, 85%, 60%, ${p.alpha})`;
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = `hsla(${p.hue}, 85%, 60%, 0.5)`;
+      ctx.fill();
+
+      for (let j = i + 1; j < particles.length; j++) {
+        const p2 = particles[j];
+        const dist = Math.hypot(p.x - p2.x, p.y - p2.y);
+        if (dist < 65) {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p2.x, p2.y);
+          ctx.strokeStyle = `hsla(160, 80%, 65%, ${(1 - dist / 65) * 0.16})`;
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(animate);
   }
+  requestAnimationFrame(animate);
+
+  window.addEventListener("resize", () => {
+    if (!canvas) return;
+    w = canvas.width = parent?.offsetWidth || canvas.offsetWidth || 900;
+    h = canvas.height = parent?.offsetHeight || canvas.offsetHeight || 320;
+  });
 }
 
 // ===== INIT =====
@@ -789,6 +992,7 @@ async function init() {
   applyTranslations();
   initTabs();
   initA11yToggles();
+  initAmbientCanvas();
 
   // Language switcher
   $("#lang-select")?.addEventListener("change", (e) => {
