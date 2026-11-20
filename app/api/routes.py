@@ -6,6 +6,7 @@ Routes: /api/health, /api/geocode, /api/assess, /api/simulate, /api/chat
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 import logging
 
@@ -167,7 +168,9 @@ async def assess(
     }
 
     # 8. Gemini narrative (with fallback)
-    narrative = llm.generate_assessment_narrative(gemini_context, language=profile.language)
+    narrative = await asyncio.to_thread(
+        llm.generate_assessment_narrative, gemini_context, language=profile.language
+    )
     ai_generated = narrative is not None
     if not ai_generated:
         narrative = llm.fallback_assessment_narrative(gemini_context, language=profile.language)
@@ -241,7 +244,8 @@ async def chat(body: ChatRequest) -> ChatResponse:
 
     history = [{"role": m.role, "content": m.content} for m in body.history[-6:]]
 
-    reply = llm.generate_chat_reply(
+    reply = await asyncio.to_thread(
+        llm.generate_chat_reply,
         user_message=safe_message,
         history=history,
         assessment_context=body.assessment_context,

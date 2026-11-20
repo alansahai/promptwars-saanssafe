@@ -7,7 +7,9 @@ No secrets are hardcoded. Use .env.example as a template.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Any
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,7 +21,22 @@ class Settings(BaseSettings):
     gemini_model: str = "gemini-2.5-flash"
 
     # --- CORS ---
-    allowed_origins: list[str] = ["*"]
+    allowed_origins: str | list[str] = ["*"]
+
+    @field_validator("allowed_origins")
+    @classmethod
+    def normalize_allowed_origins(cls, v: Any) -> list[str]:
+        if isinstance(v, str):
+            v_str = v.strip()
+            if v_str.startswith("[") and v_str.endswith("]"):
+                import json
+
+                try:
+                    return json.loads(v_str)
+                except Exception:
+                    pass
+            return [x.strip() for x in v_str.split(",") if x.strip()]
+        return v
 
     # --- Rate limiting (in-memory, per-instance; best-effort on serverless) ---
     rate_limit_per_minute: int = 60

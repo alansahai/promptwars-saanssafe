@@ -158,8 +158,8 @@ def generate_assessment_narrative(
             contents=_build_assessment_prompt(context_json, language),
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                response_json_schema=ASSESSMENT_SCHEMA,
-                max_output_tokens=1024,
+                response_schema=ASSESSMENT_SCHEMA,
+                max_output_tokens=2048,
             ),
         )
         raw = response.text
