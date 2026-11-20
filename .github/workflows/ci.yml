@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: Lint + Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Lint with ruff
+        run: ruff check .
+
+      - name: Run tests with coverage
+        env:
+          GEMINI_API_KEY: ""
+          ENVIRONMENT: test
+        run: |
+          pytest -q --cov=app --cov-report=term-missing --cov-fail-under=80
+
+      - name: Verify vercel.json is valid JSON
+        run: python -c "import json; json.load(open('vercel.json'))"
+
+      - name: Check repo size < 10 MB
+        run: |
+          SIZE=$(du -sm . | cut -f1)
+          echo "Repo size: ${SIZE} MB"
+          [ "$SIZE" -lt 10 ] || (echo "Repo exceeds 10 MB limit!" && exit 1)
