@@ -115,6 +115,16 @@
         </button>
       </div>
 
+      <!-- Quick City Hotspots -->
+      <div class="quick-cities" aria-label="Popular smog hotspot cities">
+        <span class="quick-cities-label">⚡ Smog Hotspots:</span>
+        <button type="button" class="city-chip" data-city="New Delhi" data-lat="28.61" data-lon="77.21">🇮🇳 Delhi</button>
+        <button type="button" class="city-chip" data-city="Lucknow" data-lat="26.84" data-lon="80.94">🇮🇳 Lucknow</button>
+        <button type="button" class="city-chip" data-city="Patna" data-lat="25.59" data-lon="85.13">🇮🇳 Patna</button>
+        <button type="button" class="city-chip" data-city="Mumbai" data-lat="19.07" data-lon="72.87">🇮🇳 Mumbai</button>
+        <button type="button" class="city-chip" data-city="Kolkata" data-lat="22.57" data-lon="88.36">🇮🇳 Kolkata</button>
+      </div>
+
       <div id="location-display" class="location-display" aria-live="polite" hidden>
         <span aria-hidden="true">📌</span>
         <span id="location-text"></span>
@@ -324,6 +334,42 @@
         </div>
       </div>
 
+      <!-- === POLLUTANTS & HEALTH INTELLIGENCE GRID === -->
+      <div class="pollutants-grid" id="pollutants-card" hidden>
+        <div class="pollutant-card">
+          <div class="pollutant-header">
+            <span class="p-icon">🌫️</span>
+            <span class="p-name">PM2.5 Ambient</span>
+          </div>
+          <div class="p-value" id="val-pm25">--</div>
+          <div class="p-sub" id="sub-pm25">Fine Inhalable Particles</div>
+        </div>
+        <div class="pollutant-card">
+          <div class="pollutant-header">
+            <span class="p-icon">🏭</span>
+            <span class="p-name">PM10 Coarse</span>
+          </div>
+          <div class="p-value" id="val-pm10">--</div>
+          <div class="p-sub" id="sub-pm10">Dust & Ash Particulates</div>
+        </div>
+        <div class="pollutant-card highlight-card">
+          <div class="pollutant-header">
+            <span class="p-icon">🚬</span>
+            <span class="p-name">Daily Inhaled Toxicity</span>
+          </div>
+          <div class="p-value text-danger" id="val-cigs">--</div>
+          <div class="p-sub">Cigarettes smoked/day equiv</div>
+        </div>
+        <div class="pollutant-card">
+          <div class="pollutant-header">
+            <span class="p-icon">🌡️</span>
+            <span class="p-name">Atmosphere Stagnation</span>
+          </div>
+          <div class="p-value" id="val-inversion">--</div>
+          <div class="p-sub" id="sub-inversion">Boundary Dispersion Level</div>
+        </div>
+      </div>
+
       <!-- === PRINT HEADER (visible only in print) === -->
       <div class="print-header">
         <h1>SaansSafe — Family Air Plan</h1>
@@ -357,6 +403,42 @@
           </div>
           <!-- Timeline tasks -->
           <ol id="timeline-list" class="timeline-list" aria-label="Daily routine tasks"></ol>
+
+          <!-- Activity Safety Matrix -->
+          <div class="activity-matrix card" id="activity-matrix">
+            <h4 class="activity-matrix-title">🚦 Activity Safety Directives</h4>
+            <div class="activity-grid">
+              <div class="activity-card" id="act-walk">
+                <span class="act-icon">🏃</span>
+                <div class="act-details">
+                  <span class="act-name">Outdoor Jogging</span>
+                  <span class="act-status" id="act-walk-status">Calculating…</span>
+                </div>
+              </div>
+              <div class="activity-card" id="act-play">
+                <span class="act-icon">👶</span>
+                <div class="act-details">
+                  <span class="act-name">Kids Outdoor Play</span>
+                  <span class="act-status" id="act-play-status">Calculating…</span>
+                </div>
+              </div>
+              <div class="activity-card" id="act-vent">
+                <span class="act-icon">🪟</span>
+                <div class="act-details">
+                  <span class="act-name">Window Ventilation</span>
+                  <span class="act-status" id="act-vent-status">Calculating…</span>
+                </div>
+              </div>
+              <div class="activity-card" id="act-mask">
+                <span class="act-icon">😷</span>
+                <div class="act-details">
+                  <span class="act-name">Mask Protection</span>
+                  <span class="act-status" id="act-mask-status">Calculating…</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Family & kids tips -->
           <div id="tips-section" class="tips-grid" hidden>
             <div class="tips-card">

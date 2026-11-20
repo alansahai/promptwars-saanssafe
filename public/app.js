@@ -566,6 +566,77 @@ function renderAssessment(data) {
 
   show($("#hero-card"));
 
+  // Pollutants & Health Intelligence Grid
+  const pm25 = data.current_pm25 ?? 0;
+  const pm10 = data.current_pm10 ?? 0;
+  const cigs = (pm25 / 22).toFixed(1);
+  const pCard = $("#pollutants-card");
+  if (pCard) {
+    $("#val-pm25").textContent = `${pm25.toFixed(1)} µg/m³`;
+    $("#val-pm10").textContent = `${pm10.toFixed(1)} µg/m³`;
+    $("#val-cigs").textContent = `≈ ${cigs} / day`;
+    $("#val-inversion").textContent = data.inversion_flag ? "High (Trapped)" : "Dispersed";
+    show(pCard);
+  }
+
+  // Activity safety directives
+  const actWalk = $("#act-walk-status");
+  const actPlay = $("#act-play-status");
+  const actVent = $("#act-vent-status");
+  const actMask = $("#act-mask-status");
+
+  if (actWalk) {
+    if (data.current_aqi > 200) {
+      actWalk.textContent = "🚫 Avoid Running";
+      actWalk.className = "act-status status-danger";
+    } else if (data.current_aqi > 100) {
+      actWalk.textContent = "⚠️ Mild Walk Only";
+      actWalk.className = "act-status status-warning";
+    } else {
+      actWalk.textContent = "✅ Safe for Jogging";
+      actWalk.className = "act-status status-safe";
+    }
+  }
+
+  if (actPlay) {
+    if (data.current_aqi > 150) {
+      actPlay.textContent = "🚫 Keep Indoors";
+      actPlay.className = "act-status status-danger";
+    } else if (data.current_aqi > 75) {
+      actPlay.textContent = "⚠️ Limit Duration";
+      actPlay.className = "act-status status-warning";
+    } else {
+      actPlay.textContent = "✅ Safe Outdoor Play";
+      actPlay.className = "act-status status-safe";
+    }
+  }
+
+  if (actVent) {
+    if (data.inversion_flag || data.current_aqi > 200) {
+      actVent.textContent = "⚠️ 12 PM - 2 PM Only";
+      actVent.className = "act-status status-warning";
+    } else if (data.current_aqi > 100) {
+      actVent.textContent = "⚠️ Afternoon Airing";
+      actVent.className = "act-status status-warning";
+    } else {
+      actVent.textContent = "✅ Open Freely";
+      actVent.className = "act-status status-safe";
+    }
+  }
+
+  if (actMask) {
+    if (data.current_aqi > 200) {
+      actMask.textContent = "😷 N95 Mandatory";
+      actMask.className = "act-status status-danger";
+    } else if (data.current_aqi > 100) {
+      actMask.textContent = "😷 N95 for Commute";
+      actMask.className = "act-status status-warning";
+    } else {
+      actMask.textContent = "✅ Mask Optional";
+      actMask.className = "act-status status-safe";
+    }
+  }
+
   // Print date
   $("#print-date").textContent = new Date().toLocaleDateString(getLang());
 
@@ -730,6 +801,25 @@ async function init() {
   // City search
   $("#city-search")?.addEventListener("input", (e) => debouncedGeocode(e.target.value));
   $("#city-search")?.addEventListener("blur", () => setTimeout(() => hide($("#city-suggestions")), 150));
+
+  // Quick city hotspot chips
+  document.querySelectorAll(".city-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const city = chip.getAttribute("data-city");
+      const lat = parseFloat(chip.getAttribute("data-lat"));
+      const lon = parseFloat(chip.getAttribute("data-lon"));
+      state.location = { lat, lon, city_name: city };
+      const searchInput = $("#city-search");
+      if (searchInput) searchInput.value = `${city}, India`;
+      const disp = $("#location-display");
+      const text = $("#location-text");
+      if (disp && text) {
+        text.textContent = `${city} (${lat.toFixed(2)}°, ${lon.toFixed(2)}°)`;
+        show(disp);
+      }
+      runAssessment();
+    });
+  });
 
   // Geolocation button
   $("#btn-geolocate")?.addEventListener("click", useGeolocation);

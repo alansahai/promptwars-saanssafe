@@ -392,6 +392,43 @@ main {
   gap: 0.5rem;
 }
 
+/* Quick City Hotspots */
+.quick-cities {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.quick-cities-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.city-chip {
+  background: var(--color-surface-solid);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition);
+}
+
+.city-chip:hover {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
 /* Suggestions Dropdown */
 .suggestions-list {
   position: absolute;
@@ -600,6 +637,154 @@ main {
   flex-wrap: wrap;
   gap: 2.25rem;
   align-items: center;
+}
+
+/* ===== POLLUTANTS & HEALTH INTELLIGENCE GRID ===== */
+.pollutants-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.pollutant-card {
+  background: var(--color-surface-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.4rem;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  transition: all var(--transition);
+}
+
+.pollutant-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary);
+}
+
+.pollutant-card.highlight-card {
+  border-color: #fca5a5;
+  background: linear-gradient(135deg, rgba(254, 242, 242, 0.9) 0%, rgba(255, 255, 255, 0.95) 100%);
+}
+[data-theme="dark"] .pollutant-card.highlight-card {
+  background: linear-gradient(135deg, rgba(153, 27, 27, 0.25) 0%, rgba(30, 41, 59, 0.85) 100%);
+  border-color: #7f1d1d;
+}
+
+.pollutant-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.p-icon { font-size: 1.2rem; }
+.p-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+}
+
+.p-value {
+  font-size: 1.8rem;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--color-text);
+}
+
+.p-value.text-danger {
+  color: #dc2626;
+}
+[data-theme="dark"] .p-value.text-danger {
+  color: #f87171;
+}
+
+.p-sub {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+/* ===== ACTIVITY SAFETY DIRECTIVES MATRIX ===== */
+.activity-matrix {
+  margin-top: 1.5rem;
+  margin-bottom: 1.75rem;
+  background: var(--color-surface-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+}
+
+.activity-matrix-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.activity-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.activity-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition);
+}
+
+.activity-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.act-icon {
+  font-size: 1.8rem;
+  flex-shrink: 0;
+}
+
+.act-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.act-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.act-status {
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.act-status.status-danger {
+  color: #dc2626;
+}
+.act-status.status-warning {
+  color: #d97706;
+}
+.act-status.status-safe {
+  color: #16a34a;
 }
 
 .gauge-wrap {
