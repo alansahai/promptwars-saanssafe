@@ -1,44 +1,88 @@
-"""Vercel serverless entrypoint for SaansSafe."""
+"""Vercel serverless entrypoint for SaansSafe.
+
+Pure ASGI handler with diagnostic capture.
+Guarantees zero cold-start crashes by catching import and runtime exceptions
+and returning detailed JSON tracebacks.
+"""
 
 from __future__ import annotations
 
+import json
 import os
 import sys
+import traceback
 
-# Ensure api directory, api/app, and repository root are all on sys.path
-_api_dir = os.path.dirname(os.path.abspath(__file__))
-_root_dir = os.path.dirname(_api_dir)
+_dir = os.path.dirname(os.path.abspath(__file__))
+_root = os.path.dirname(_dir)
 
-for _p in [_api_dir, os.path.join(_api_dir, "app"), _root_dir]:
+for _p in [_dir, os.path.join(_dir, "app"), _root]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+_real_app = None
+_init_error = None
+
 try:
-    from app.main import app
+    from app.main import app as _real_app
 except Exception as e:
-    import traceback
+    _init_error = f"{type(e).__name__}: {e}\n{traceback.format_exc()}"
 
-    print(f"CRITICAL STARTUP ERROR in api/index.py: {e}", file=sys.stderr)
-    traceback.print_exc(file=sys.stderr)
 
-    from fastapi import FastAPI
-    from fastapi.responses import JSONResponse
+async def app(scope: dict, receive: callable, send: callable) -> None:
+    """Root ASGI entrypoint called by Vercel's Python runtime."""
+    global _real_app, _init_error
 
-    _err_str = str(e)
-    _err_trace = traceback.format_exc()
-    app = FastAPI(title="SaansSafe Diagnostics")
+    if scope.get("type") != "http":
+        return
 
-    @app.api_route("/{path:path}", methods=["GET", "POST", "OPTIONS"])
-    def error_catch_all(path: str = "") -> JSONResponse:
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status": "startup_error",
-                "error": _err_str,
-                "traceback": _err_trace,
-                "path": path,
-                "sys_path": sys.path[:5],
-            },
-        )
+    # Guarantee required ASGI scope fields for Starlette/FastAPI compatibility
+    scope.setdefault("query_string", b"")
+    scope.setdefault("headers", [])
+    scope.setdefault("server", ("127.0.0.1", 80))
+    scope.setdefault("client", ("127.0.0.1", 12345))
+
+    # If import failed during cold start, return diagnostic JSON
+    if _init_error:
+        err_data = {
+            "status": "startup_error",
+            "error": _init_error,
+            "sys_path": sys.path[:8],
+            "cwd": os.getcwd(),
+            "files_in_cwd": os.listdir(".") if os.path.exists(".") else [],
+            "files_in_api": os.listdir(_dir) if os.path.exists(_dir) else [],
+        }
+        body = json.dumps(err_data, indent=2).encode("utf-8")
+        await send({
+            "type": "http.response.start",
+            "status": 500,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode("ascii")),
+            ],
+        })
+        await send({"type": "http.response.body", "body": body})
+        return
+
+    # Forward to real FastAPI application
+    try:
+        await _real_app(scope, receive, send)
+    except Exception as exc:
+        err_data = {
+            "status": "runtime_error",
+            "error": f"{type(exc).__name__}: {exc}",
+            "traceback": traceback.format_exc(),
+            "scope_path": scope.get("path"),
+        }
+        body = json.dumps(err_data, indent=2).encode("utf-8")
+        await send({
+            "type": "http.response.start",
+            "status": 500,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode("ascii")),
+            ],
+        })
+        await send({"type": "http.response.body", "body": body})
+
 
 __all__ = ["app"]
