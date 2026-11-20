@@ -334,8 +334,7 @@ function renderAlternatives(alts) {
     card.appendChild(el("h3", a.title, { class: "card-title" }));
     card.appendChild(el("p", a.description, { class: "card-desc" }));
     if (a.community_note) {
-      const note = el("p", `🌍 ${a.community_note}`, { class: "card-desc" });
-      note.style.fontSize = "0.8rem";
+      const note = el("p", `🌍 ${a.community_note}`, { class: "card-desc card-community" });
       card.appendChild(note);
     }
     const tags = el("div", null, { class: "card-tags" });
@@ -343,9 +342,9 @@ function renderAlternatives(alts) {
       tags.appendChild(el("span", `Exposure ${a.exposure_change_pct}%`, { class: "tag tag-free" }));
     }
     if (a.emission_change_gco2e_per_km < 0) {
-      tags.appendChild(el("span", `${a.emission_change_gco2e_per_km.toFixed(0)} gCO₂e/km`, { class: "tag tag-free" }));
+      tags.appendChild(el("span", `${a.emission_change_gco2e_per_km.toFixed(0)} gCO₂e/km`, { class: "tag tag-low" }));
     }
-    tags.appendChild(el("span", a.effort, { class: "tag" }));
+    tags.appendChild(el("span", `Effort: ${a.effort}`, { class: "tag tag-medium" }));
     card.appendChild(tags);
     grid.appendChild(card);
   });
@@ -394,11 +393,13 @@ function renderSimActions() {
   const container = $("#sim-actions");
   if (!container) return;
   container.textContent = "";
-  SIM_ACTIONS.forEach((action) => {
+  SIM_ACTIONS.forEach((action, idx) => {
     const item = el("label", null, { class: "sim-action-item" });
     const cb = el("input", null, { type: "checkbox" });
     cb.name = action.id;
-    cb.addEventListener("change", debounce(runSimulation, 400));
+    // Pre-check the induction cooking swap for instant interactive feedback
+    if (idx === 1) cb.checked = true;
+    cb.addEventListener("change", debounce(runSimulation, 250));
     item.appendChild(cb);
     const textWrap = el("div");
     textWrap.appendChild(el("div", action.label, { class: "sim-action-label" }));
@@ -406,6 +407,9 @@ function renderSimActions() {
     item.appendChild(textWrap);
     container.appendChild(item);
   });
+
+  // Automatically run initial simulation so results and chart render immediately
+  runSimulation();
 }
 
 async function runSimulation() {
@@ -418,10 +422,12 @@ async function runSimulation() {
   }));
 
   try {
+    const outdoorPm25 = Number(state.assessment?.current_pm25 ?? 120.0);
     const res = await fetch(API.simulate, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
+        outdoor_pm25: outdoorPm25,
         location: state.location,
         profile: { ...state.profile, language: getLang() },
         actions,
@@ -430,19 +436,24 @@ async function runSimulation() {
     if (!res.ok) return;
     const data = await res.json();
 
-    show($("#sim-results"));
-    $("#sim-before-dose").textContent = data.before_pm25_dose_ug.toFixed(1);
-    $("#sim-after-dose").textContent = data.after_pm25_dose_ug.toFixed(1);
-    $("#sim-co2-saved").textContent = data.co2e_saved_per_year_kg.toFixed(1);
-    $("#sim-equiv-km").textContent = data.equivalent_km_not_driven.toFixed(0);
+    const beforeDose = Number(data.before_pm25_dose_ug ?? data.baseline_daily_pm25_dose_ug ?? 0);
+    const afterDose = Number(data.after_pm25_dose_ug ?? data.intervention_daily_pm25_dose_ug ?? 0);
+    const co2Saved = Number(data.co2e_saved_per_year_kg ?? data.annual_co2_kg_saved ?? 0);
+    const equivKm = Number(data.equivalent_km_not_driven ?? 0);
 
-    drawSimChart(data.before_pm25_dose_ug, data.after_pm25_dose_ug);
+    show($("#sim-results"));
+    $("#sim-before-dose").textContent = beforeDose.toFixed(1);
+    $("#sim-after-dose").textContent = afterDose.toFixed(1);
+    $("#sim-co2-saved").textContent = co2Saved.toFixed(1);
+    $("#sim-equiv-km").textContent = equivKm.toFixed(0);
+
+    drawSimChart(beforeDose, afterDose);
 
     const formulaEl = $("#sim-formula");
-    if (formulaEl) formulaEl.textContent = data.formula;
+    if (formulaEl && data.formula) formulaEl.textContent = data.formula;
 
     const assumptionsList = $("#sim-assumptions");
-    if (assumptionsList) {
+    if (assumptionsList && Array.isArray(data.assumptions)) {
       assumptionsList.textContent = "";
       data.assumptions.forEach((a) => assumptionsList.appendChild(el("li", a)));
     }
@@ -783,7 +794,12 @@ function initTabs() {
       const panelId = tab.getAttribute("aria-controls");
       $$(".tab-panel").forEach((p) => hide(p));
       const panel = document.getElementById(panelId);
-      if (panel) show(panel);
+      if (panel) {
+        show(panel);
+        if (panelId === "tab-simulator") {
+          runSimulation();
+        }
+      }
     });
     // Keyboard navigation
     tab.addEventListener("keydown", (e) => {

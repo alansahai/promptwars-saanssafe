@@ -1,3 +1,9 @@
+// SaansSafe — Serverless Assessment Endpoint with Ultra-Fast In-Memory Caching
+
+const _openMeteoCache = new Map();
+const _narrativeCache = new Map();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ detail: "Method not allowed" });
@@ -20,23 +26,37 @@ export default async function handler(req, res) {
 
   const lat = Number(location.lat || 28.6519);
   const lon = Number(location.lon || 77.2315);
+  const cacheKey = `${lat.toFixed(2)}_${lon.toFixed(2)}`;
 
   let aqiData = null;
   let wxData = null;
 
-  try {
-    const [aqRes, wxRes] = await Promise.all([
-      fetch(
-        `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5,us_aqi&hourly=pm10,pm2_5,us_aqi&timezone=auto&forecast_days=2`
-      ),
-      fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m&hourly=temperature_2m,wind_speed_10m&timezone=auto&forecast_days=2`
-      ),
-    ]);
-    if (aqRes.ok) aqiData = await aqRes.json();
-    if (wxRes.ok) wxData = await wxRes.json();
-  } catch (err) {
-    console.warn("Open-Meteo fetch error, using fallbacks:", err);
+  // Check Open-Meteo cache
+  const cachedMeteo = _openMeteoCache.get(cacheKey);
+  if (cachedMeteo && Date.now() - cachedMeteo.ts < CACHE_TTL_MS) {
+    aqiData = cachedMeteo.aqiData;
+    wxData = cachedMeteo.wxData;
+  } else {
+    try {
+      const [aqRes, wxRes] = await Promise.all([
+        fetch(
+          `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=pm10,pm2_5,us_aqi&hourly=pm10,pm2_5,us_aqi&timezone=auto&forecast_days=2`,
+          { signal: AbortSignal.timeout(3000) }
+        ),
+        fetch(
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,wind_speed_10m&hourly=temperature_2m,wind_speed_10m&timezone=auto&forecast_days=2`,
+          { signal: AbortSignal.timeout(3000) }
+        ),
+      ]);
+      if (aqRes.ok) aqiData = await aqRes.json();
+      if (wxRes.ok) wxData = await wxRes.json();
+
+      if (aqiData && wxData) {
+        _openMeteoCache.set(cacheKey, { aqiData, wxData, ts: Date.now() });
+      }
+    } catch (err) {
+      console.warn("Open-Meteo fetch error or timeout, using fallbacks:", err);
+    }
   }
 
   const current_aqi = Number(aqiData?.current?.us_aqi ?? 235.0);
@@ -57,7 +77,10 @@ export default async function handler(req, res) {
     description: `Current AQI is ${Math.round(current_aqi)} with PM2.5 at ${Math.round(current_pm25)} µg/m³.`,
   });
 
-  if (profile.children > 0) {
+  const numChildren = Number(profile.infants_children ?? profile.children ?? 0);
+  const numElderly = Number(profile.elderly ?? 0);
+
+  if (numChildren > 0) {
     vuln += 0.25;
     reasons.push({
       factor: "children_present",
@@ -65,7 +88,7 @@ export default async function handler(req, res) {
       description: "Young lungs take 50% more breaths per minute, increasing internal particle dose.",
     });
   }
-  if (profile.elderly > 0) {
+  if (numElderly > 0) {
     vuln += 0.3;
     reasons.push({
       factor: "elderly_present",
@@ -81,7 +104,7 @@ export default async function handler(req, res) {
       description: "Pre-existing respiratory conditions increase sensitivity to fine aerosol penetration.",
     });
   }
-  if (profile.has_heart_disease) {
+  if (profile.has_heart_disease || profile.has_heart_condition) {
     vuln += 0.35;
     reasons.push({
       factor: "cardiac_vulnerability",
@@ -89,7 +112,7 @@ export default async function handler(req, res) {
       description: "Ultrafine PM2.5 crosses into bloodstream, elevating cardiac arterial strain.",
     });
   }
-  if (profile.is_pregnant) {
+  if (profile.is_pregnant || profile.pregnant) {
     vuln += 0.3;
     reasons.push({
       factor: "pregnancy",
@@ -245,29 +268,72 @@ export default async function handler(req, res) {
     },
   ];
 
-  // Gemini GenAI Integration
-  let ai_generated = false;
+  // Language-tailored rule narrative defaults
+  const isHi = profile.language === "hi";
+  const isTa = profile.language === "ta";
+
   let narrative = {
-    headline: `Smog Alert: ${location.name} Air Quality Requires Family Protection Today`,
-    summary: `With current AQI at ${Math.round(current_aqi)} (${risk_level} Risk), outdoor air contains elevated levels of microscopic PM2.5 particles. Ground inversion conditions mean pollution remains concentrated near ground level.`,
-    family_tips: [
-      "Keep all doors and windows tightly closed between 6:00 AM and 10:00 AM.",
-      "Run indoor air purifiers in occupied living rooms and bedrooms.",
-      "Ensure all family members wear snug N95/FFP2 masks if stepping out.",
-    ],
-    kid_and_elder_notes: [
-      "Children: Postpone outdoor morning sports; substitute with indoor active games.",
-      "Elderly: Monitor blood pressure and keep prescribed inhalers easily accessible.",
-    ],
-    motivational_nudge:
-      "Small daily routine adjustments like sealing window seams and swapping commute modes protect your lungs today and build a healthier community tomorrow.",
+    headline: isHi
+      ? `स्मॉग चेतावनी: ${location.name} में आज पारिवारिक सुरक्षा आवश्यक`
+      : isTa
+      ? `காற்று எச்சரிக்கை: ${location.name} இல் குடும்ப பாதுகாப்பு தேவை`
+      : `Smog Alert: ${location.name} Air Quality Requires Family Protection Today`,
+    summary: isHi
+      ? `वर्तमान AQI ${Math.round(current_aqi)} (${risk_level} जोखिम) है। हवा में सूक्ष्म PM2.5 कण अत्यधिक हैं और तापमान उलटाव से धुआं जमीन पर केंद्रित है।`
+      : isTa
+      ? `தற்போதைய AQI ${Math.round(current_aqi)} (${risk_level} ஆபத்து). வெளியில் நச்சு PM2.5 துகள்கள் அதிகம், நிலப்பரப்பில் புகை தேங்கியுள்ளது.`
+      : `With current AQI at ${Math.round(current_aqi)} (${risk_level} Risk), outdoor air contains elevated levels of microscopic PM2.5 particles. Ground inversion conditions mean pollution remains concentrated near ground level.`,
+    family_tips: isHi
+      ? [
+          "सुबह 6:00 से 10:00 बजे के बीच बाहरी दरवाजे और खिड़कियां बंद रखें।",
+          "घर के मुख्य कमरों में एयर प्यूरीफायर चलाएं।",
+          "बाहर निकलते समय N95 या FFP2 मास्क अवश्य पहनें।",
+        ]
+      : isTa
+      ? [
+          "காலை 6:00 முதல் 10:00 வரை சாளரங்களை மூடி வைக்கவும்.",
+          "அறைகளில் காற்று சுத்திகரிப்பானை இயக்கவும்.",
+          "வெளியே செல்லும்போது N95 முகக்கவசம் அணியவும்.",
+        ]
+      : [
+          "Keep all doors and windows tightly closed between 6:00 AM and 10:00 AM.",
+          "Run indoor air purifiers in occupied living rooms and bedrooms.",
+          "Ensure all family members wear snug N95/FFP2 masks if stepping out.",
+        ],
+    kid_and_elder_notes: isHi
+      ? [
+          "बच्चे: सुबह के आउटडोर खेलों को स्थगित करें और घर के अंदर खेलें।",
+          "बुजुर्ग: रक्तचाप की निगरानी करें और आवश्यक दवाएं पास रखें।",
+        ]
+      : isTa
+      ? [
+          "குழந்தைகள்: காலை நேர வெளிப்புற விளையாட்டுகளை தவிர்க்கவும்.",
+          "முதியவர்கள்: இரத்த அழுத்தத்தைக் கண்காணித்து மருந்துகளை அருகில் வைக்கவும்.",
+        ]
+      : [
+          "Children: Postpone outdoor morning sports; substitute with indoor active games.",
+          "Elderly: Monitor blood pressure and keep prescribed inhalers easily accessible.",
+        ],
+    motivational_nudge: isHi
+      ? "खिड़कियां सील करने और सुरक्षित समय पर आवागमन जैसे छोटे बदलाव आज फेफड़ों की रक्षा करते हैं।"
+      : isTa
+      ? "சாளரங்களை அடைப்பது மற்றும் பயண முறையை மாற்றுவது போன்ற சிறு பழக்கங்கள் உங்கள் குடும்பத்தை பாதுகாக்கும்."
+      : "Small daily routine adjustments like sealing window seams and swapping commute modes protect your lungs today and build a healthier community tomorrow.",
   };
 
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (apiKey) {
-    try {
-      const prompt = `You are SaansSafe, a warm, scientifically grounded air quality assistant for families in India.
-Generate a structured family smog navigation narrative in ${profile.language === "hi" ? "Hindi (हिन्दी)" : profile.language === "ta" ? "Tamil (தமிழ்)" : "English"}.
+  let ai_generated = false;
+  const narrativeKey = `${cacheKey}_${profile.language || "en"}_${Math.round(risk_score / 5) * 5}`;
+  const cachedNarrative = _narrativeCache.get(narrativeKey);
+
+  if (cachedNarrative && Date.now() - cachedNarrative.ts < CACHE_TTL_MS) {
+    narrative = cachedNarrative.narrative;
+    ai_generated = true;
+  } else {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey) {
+      try {
+        const prompt = `You are SaansSafe, a warm, scientifically grounded air quality assistant for families in India.
+Generate a structured family smog navigation narrative in ${isHi ? "Hindi (हिन्दी)" : isTa ? "Tamil (தமிழ்)" : "English"}.
 Use ONLY the following factual context:
 - Location: ${location.name}
 - Current AQI: ${Math.round(current_aqi)}
@@ -285,35 +351,42 @@ Return a strict JSON object with these keys:
   "motivational_nudge": "inspiring, positive closing thought"
 }`;
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.2,
-              maxOutputTokens: 2048,
-              responseMimeType: "application/json",
-            },
-          }),
-        }
-      );
+        // Set maxOutputTokens to 600, thinkingBudget to 0, and a 3.5s timeout for blazingly fast response
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: AbortSignal.timeout(3500),
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: 600,
+                responseMimeType: "application/json",
+                thinkingConfig: {
+                  thinkingBudget: 0,
+                },
+              },
+            }),
+          }
+        );
 
-      if (response.ok) {
-        const data = await response.json();
-        const rawJson = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (rawJson) {
-          const parsed = JSON.parse(rawJson);
-          if (parsed.headline && parsed.summary && Array.isArray(parsed.family_tips)) {
-            narrative = parsed;
-            ai_generated = true;
+        if (response.ok) {
+          const data = await response.json();
+          const rawJson = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawJson) {
+            const parsed = JSON.parse(rawJson);
+            if (parsed.headline && parsed.summary && Array.isArray(parsed.family_tips)) {
+              narrative = parsed;
+              ai_generated = true;
+              _narrativeCache.set(narrativeKey, { narrative, ts: Date.now() });
+            }
           }
         }
+      } catch (err) {
+        console.warn("Gemini assessment call failed or timed out, using instant rule narrative:", err);
       }
-    } catch (err) {
-      console.warn("Gemini assessment call failed, using rule-based narrative:", err);
     }
   }
 
