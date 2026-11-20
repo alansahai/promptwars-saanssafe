@@ -750,6 +750,20 @@ async function init() {
   $("#btn-chat-send")?.addEventListener("click", sendChat);
   $("#chat-input")?.addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
 
+  // Chat suggestion chips
+  document.querySelectorAll(".chat-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const input = $("#chat-input");
+      if (input) {
+        input.value = btn.textContent.replace(/^[\p{Emoji}\s]+/u, "").trim();
+        sendChat();
+      }
+    });
+  });
+
+  // Print plan
+  $("#btn-print-plan")?.addEventListener("click", () => window.print());
+
   // Check Gemini availability
   try {
     const res = await fetch(API.health);

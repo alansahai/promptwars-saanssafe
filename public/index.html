@@ -57,6 +57,26 @@
   <!-- ===== MAIN ===== -->
   <main id="main-content" role="main">
 
+    <!-- ===== HERO BANNER ===== -->
+    <section class="hero-banner" aria-labelledby="hero-title">
+      <div class="hero-badge">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span>AI-Powered Winter Smog Navigation Assistant</span>
+      </div>
+      <h1 id="hero-title" class="hero-title">
+        Breathe Smarter. Protect Your Family.
+      </h1>
+      <p class="hero-subtitle">
+        Hyper-personalized low-exposure daily routines, verified indoor air quality hacks, and sustainable commute swaps tailored to your local smog conditions.
+      </p>
+      <div class="hero-highlights">
+        <div class="highlight-chip"><span aria-hidden="true">🛡️</span> Privacy-by-Design</div>
+        <div class="highlight-chip"><span aria-hidden="true">🌡️</span> Inversion Detection</div>
+        <div class="highlight-chip"><span aria-hidden="true">🌐</span> English · हिन्दी · தமிழ்</div>
+        <div class="highlight-chip"><span aria-hidden="true">🤖</span> Gemini 2.5 Flash Grounded AI</div>
+      </div>
+    </section>
+
     <!-- ===== LOCATION SECTION ===== -->
     <section class="section card" aria-labelledby="location-heading">
       <h2 id="location-heading" class="section-title">
@@ -408,6 +428,14 @@
           <h3 class="tab-heading" data-i18n="chat_title">Ask SaansSafe</h3>
           <p class="tab-desc" data-i18n="chat_desc">Ask follow-up questions about air quality, your routine, or precautions.</p>
           <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-label="Chat conversation"></div>
+          
+          <!-- Suggested Prompt Chips -->
+          <div class="chat-suggestions" aria-label="Suggested questions">
+            <button type="button" class="chat-chip">🏃 Can I exercise outdoors today?</button>
+            <button type="button" class="chat-chip">😷 Which mask protects best?</button>
+            <button type="button" class="chat-chip">🪟 When should I ventilate?</button>
+          </div>
+
           <div class="chat-input-wrap">
             <label for="chat-input" class="sr-only" data-i18n="chat_input_label">Your question</label>
             <input id="chat-input" type="text" class="form-input chat-input" maxlength="500"
@@ -426,7 +454,7 @@
 
       <!-- Print button -->
       <div class="print-actions" id="print-actions" hidden>
-        <button class="btn btn-outline no-print" onclick="window.print()" data-i18n="print_plan">
+        <button id="btn-print-plan" class="btn btn-outline no-print" type="button" data-i18n="print_plan">
           🖨️ Print Family Air Plan
         </button>
       </div>
