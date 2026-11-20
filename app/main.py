@@ -143,11 +143,15 @@ def create_app() -> FastAPI:
 
     # --- Static files ---
     # In local dev or standalone server, serve public/ directly from FastAPI.
-    # On Vercel, routes in vercel.json serve /public at the CDN edge before reaching Python.
-    public_dir = os.path.join(os.path.dirname(__file__), "..", "public")
-    if os.path.isdir(public_dir):
-        app.mount("/", StaticFiles(directory=public_dir, html=True), name="static")
-        logger.info("Serving static files from %s", public_dir)
+    # On Vercel, static files are served at the CDN edge before reaching Python.
+    if not os.environ.get("VERCEL"):
+        public_dir = os.path.join(os.path.dirname(__file__), "..", "public")
+        if os.path.isdir(public_dir):
+            try:
+                app.mount("/", StaticFiles(directory=public_dir, html=True), name="static")
+                logger.info("Serving static files from %s", public_dir)
+            except Exception as e:
+                logger.warning("Could not mount static files: %s", e)
 
     return app
 

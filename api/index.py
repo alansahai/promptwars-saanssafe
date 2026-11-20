@@ -16,7 +16,32 @@ root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if root_dir not in sys.path:
     sys.path.insert(0, root_dir)
 
-# Re-export the app for Vercel's Python runtime
-from app.main import app  # noqa: E402
+try:
+    from app.main import app
+except Exception:
+    import traceback
+
+    err_msg = traceback.format_exc()
+
+    async def app(scope, receive, send):
+        if scope["type"] == "http":
+            body = f"Startup Error:\n{err_msg}".encode()
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 500,
+                    "headers": [
+                        (b"content-type", b"text/plain; charset=utf-8"),
+                        (b"content-length", str(len(body)).encode("utf-8")),
+                    ],
+                }
+            )
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": body,
+                }
+            )
+
 
 __all__ = ["app"]
