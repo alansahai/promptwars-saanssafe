@@ -1,41 +1,56 @@
 # SaansSafe 🌱
 
-> **Your Family's Smog-Navigation Assistant** — Personalised air quality guidance, indoor tips, and sustainable alternatives for urban families navigating winter smog.
+> **Your Family's Urban Smog Navigation Assistant** — Personalised air quality intelligence, low-exposure daily routines, verified indoor air quality hacks, sustainable commute alternatives, and grounded GenAI consultation tailored for urban families navigating severe winter smog.
 
-[![CI](https://github.com/YOUR_USERNAME/saanssafe/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/saanssafe/actions/workflows/ci.yml)
-
----
-
-## 📸 Screenshots
-
-> *[Screenshot placeholder — run the Delhi demo profile to see the full UI]*
-
----
-
-## 🎯 Chosen Challenge
-
-**Challenge #6 — Urban Air Quality Assistant**
-
-**Persona:** Urban Indian families (with children, elderly, or health conditions) living through severe winter smog in cities like Delhi, Lucknow, Patna, and Pune.
-
-**Problem:** Families receive a single AQI number but no actionable guidance tailored to their specific situation. A family with a toddler, an elderly grandparent, and a two-wheeler commute faces very different risks than a young couple living in a metro-connected apartment.
+[![CI](https://github.com/alansahai/promptwars-saanssafe/actions/workflows/ci.yml/badge.svg)](https://github.com/alansahai/promptwars-saanssafe/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
+[![Gemini 2.5 Flash](https://img.shields.io/badge/Gemini-2.5_Flash-orange.svg)](https://ai.google.dev/)
+[![WCAG 2.1 AA](https://img.shields.io/badge/accessibility-WCAG_2.1_AA-purple.svg)](https://www.w3.org/WAI/standards-guidelines/wcag/)
 
 ---
 
-## 🧠 How It Works
+## 📖 Overview
+
+During winter, major urban corridors across South Asia and industrial centers experience dangerous levels of fine particulate matter (PM2.5 / PM10) trapped by atmospheric thermal inversions. 
+
+While public air monitors publish city-wide AQI numbers, a single index cannot capture individual family risk:
+- A toddler breathing near floor level or an elderly grandparent faces compounded vulnerability.
+- An open two-wheeler commute incurs vastly higher respiratory exposure than travel in a filtered metro.
+- Indoor activities (cooking fuel, ventilation habits, filtration) dramatically alter daily inhaled dose.
+
+**SaansSafe** solves this by bridging real-time atmospheric meteorology with personalized household context. It translates raw sensor feeds into practical daily schedules, evidence-based indoor hacks, actionable commute swaps, and an interactive "What-If" exposure simulator.
+
+---
+
+## ✨ Key Features
+
+- **Personalized Risk Engine (0–100 Score)**: Combines real-time US AQI, Indian CPCB NAQI, meteorological inversion detection (wind speed, boundary layer height, relative humidity), household vulnerability multipliers, and micro-environment exposure modifiers into an explainable risk level: *Low*, *Moderate*, *High*, *Severe*, or *Emergency*.
+- **Hour-by-Hour Exposure Planner**: Scans 24-hour meteorological forecasts to identify optimal windows for airing out the house (ventilation), school drop-offs, commutes, and safe outdoor activities with explicit mask directives.
+- **Ranked Indoor Air Hacks**: Curated catalogue of 11 physical interventions filtered by household budget (Low/Medium/High), housing type, and risk tier (e.g., DIY Corsi-Rosenthal HEPA box fans, wet-mopping vs. dry sweeping, kitchen exhaust protocols).
+- **Sustainable Commute & Lifestyle Alternatives**: Concrete alternatives comparing both personal PM2.5 exposure reductions and community carbon savings (gCO₂e/km).
+- **"What-If" Inhaled Dose Simulator**: Interactive simulation computing daily inhaled PM2.5 dose (µg/day) based on WHO 2000 age-differentiated breathing volumes, micro-environment hours, and infiltration factors.
+- **Grounded Gemini AI Consultation**: Powered by Google Gemini 2.5 Flash with structured JSON schemas and conversational follow-up Q&A strictly grounded in the user's localized air quality data.
+- **Multi-Pollutant & Health Intelligence**: Instant translation of ambient PM2.5 concentrations into Berkeley Earth cigarette equivalence (cigarettes/day equivalent) and atmospheric dispersion alerts.
+- **Trilingual Accessibility**: Fully localized in English, Hindi (हिन्दी), and Tamil (தமிழ்) with Web Speech API audio narration and WCAG 2.1 AA compliance.
+
+---
+
+## 🧠 System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  USER picks city + fills household profile (members, home, commute) │
+│  USER picks city / geolocation + fills household profile             │
 └────────────────────────┬────────────────────────────────────────────┘
                          │
                          ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│  PARALLEL DATA FETCH (asyncio.gather)                                │
+│  PARALLEL METEOROLOGY FETCH (asyncio.gather)                         │
 │  ┌─────────────────────────┐  ┌──────────────────────────────────┐  │
 │  │ Open-Meteo Air Quality  │  │ Open-Meteo Forecast API          │  │
-│  │ (US AQI, PM2.5, PM10,   │  │ (wind, temp, humidity)           │  │
-│  │  NO₂, ozone, CO)        │  │                                  │  │
+│  │ (US AQI, PM2.5, PM10,   │  │ (wind, temp, humidity,           │  │
+│  │  NO₂, ozone, CO)        │  │  boundary layer dispersion)      │  │
 │  └───────────┬─────────────┘  └────────────────┬─────────────────┘  │
 │              └────────────────┬────────────────┘                    │
 │                               ▼                                     │
@@ -44,27 +59,28 @@
                                 │
                                 ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│  RISK ENGINE (pure functions, deterministic, fully testable)         │
-│  • Base score from max(US AQI, NAQI from PM2.5)                     │
-│  • × Vulnerability multiplier (infant 1.3, elderly 1.25, etc.)      │
-│  • + Exposure modifier (open-air commute, no purifier, biomass)     │
-│  • + Inversion/stagnation bonus (wind < 2 m/s + humidity > 70%)    │
-│  → Personal risk score 0–100 with itemised REASONS list             │
+│  RISK ENGINE (pure functions, deterministic, zero I/O)               │
+│  • Base score from max(US AQI, PM2.5-derived NAQI)                  │
+│  • × Vulnerability multiplier (children 1.3, elderly 1.25, etc.)     │
+│  • + Exposure modifier (commute mode, purifier, fuel, etc.)         │
+│  • + Stagnation bonus (low wind + high humidity + low boundary)      │
+│  → Personal risk score 0–100 with itemized "Why this level?" factors │
 └───────────────────────────────┬──────────────────────────────────────┘
                                 │
               ┌─────────────────┼──────────────────┐
               ▼                 ▼                  ▼
         Routine Planner   Recommendations    Impact Simulator
         (hourly forecast, (indoor hacks      (PM2.5 dose,
-         daily tasks)      + alternatives)    CO2e calc)
+         timed tasks)      + alternatives)    CO2e calc)
               │                 │                  │
               └─────────────────┼──────────────────┘
+                                │
                                 ▼
 ┌──────────────────────────────────────────────────────────────────────┐
-│  GEMINI 2.5 FLASH (google-genai SDK)                                 │
+│  GEMINI 2.5 FLASH (official google-genai SDK)                        │
 │  • /api/assess → structured JSON narrative (response_json_schema)   │
-│  • /api/chat → grounded follow-up Q&A with safety guardrails        │
-│  • FALLBACK: rule-based templates when key absent or timeout        │
+│  • /api/chat → grounded follow-up Q&A with strict context limits     │
+│  • ZERO-DOWNTIME FALLBACK: deterministic rule-based output           │
 └───────────────────────────────┬──────────────────────────────────────┘
                                 │
                                 ▼
@@ -75,305 +91,207 @@
 
 ---
 
-## ⚖️ Risk Scoring Logic
+## ⚖️ Risk Scoring Methodology
 
-| Factor | Range | Detail |
+| Parameter | Weight / Multiplier | Description |
 |---|---|---|
-| AQI base score | 0–60 | max(US AQI, PM2.5→NAQI) / 300 × 60 |
-| Forecast peak | +0–10 | if 24-hr peak > current AQI |
-| Infant/child | ×1.3 | children breathe more per body weight |
-| Elderly (65+) | ×1.25 | reduced respiratory reserve |
-| Pregnant | ×1.3 | PM2.5 linked to preterm birth |
-| Asthma/COPD | ×1.5 | highest sensitivity factor |
-| Heart condition | ×1.4 | cardiovascular PM2.5 risk |
-| **Multiplier cap** | ×1.6 | prevents extreme compounding |
-| Open-air commute | +0–10 | walk/cycle/two-wheeler direct exposure |
-| No purifier | +5 | infiltration factor 0.65–0.75 |
-| Biomass cooking | +8 | indoor PM2.5 spike during cooking |
-| Morning exercise | +5 | 3–5× elevated breathing rate |
-| Inversion/stagnation | +8 | wind < 2 m/s AND humidity > 70% |
-| **Score range** | 0–100 | clamped; mapped to 5 levels |
+| **AQI Base Score** | 0–60 pts | Evaluates the worse of US AQI or PM2.5-derived NAQI |
+| **Forecast Peak** | +0–10 pts | Anticipated worsening over the next 24 hours |
+| **Children (<12)** | ×1.30 | Higher respiration volume per body mass |
+| **Elderly (65+)** | ×1.25 | Diminished pulmonary and cardiovascular reserve |
+| **Pregnancy** | ×1.30 | Heightened transplacental particulate vulnerability |
+| **Asthma / COPD** | ×1.50 | Pre-existing obstructive airway sensitivity |
+| **Heart Condition** | ×1.40 | Systemic inflammation and microvascular risk |
+| **Multiplier Cap** | ×1.60 max | Prevents artificial over-scaling |
+| **Open Commute** | +0–10 pts | Walking, cycling, or two-wheeler exposure |
+| **No Air Purifier** | +5 pts | Unfiltered indoor particle infiltration (0.65–0.75) |
+| **Biomass Cooking** | +8 pts | Severe indoor particulate concentrations during cooking |
+| **Morning Exercise** | +5 pts | Strenuous inhalation during peak morning stagnation |
+| **Inversion State** | +8 pts | Wind < 2 m/s combined with high relative humidity |
+| **Total Scale** | **0–100 pts** | Clamped into 5 standardized risk categories |
 
-**Levels:** Low (0–20) · Moderate (21–40) · High (41–60) · Severe (61–80) · Emergency (81–100)
-
----
-
-## 🤖 Where Gemini Is Used
-
-| Endpoint | Usage | Fallback |
-|---|---|---|
-| `POST /api/assess` | Structured JSON narrative (headline, summary, tips, nudge) in user's language (EN/HI/TA) | Rule-based template from engine output |
-| `POST /api/chat` | Grounded multi-turn Q&A, up to 6 turns of history, emergency escalation | Templated reply from assessment context |
-| System prompt | "Use ONLY provided JSON facts. Never invent AQI values or medical claims." | — |
-
-**Always fallback:** when `GEMINI_API_KEY` is absent, quota exceeded, timeout (6 s), or invalid JSON response → `ai_generated: false` with templated content. The app works fully without a key.
+### Categorization
+- **Low (0–20)**: Minimal risk; standard precautions.
+- **Moderate (21–40)**: Sensitive groups exercise caution during peak hours.
+- **High (41–60)**: Active exposure reduction; N95 recommended outdoors.
+- **Severe (61–80)**: Seal living spaces; operate filtration; suspend outdoor exertion.
+- **Emergency (81–100)**: Hazardous crisis; strict indoor confinement for vulnerable members.
 
 ---
 
-## ✅ Feature → Challenge Requirement Mapping
+## 🤖 GenAI Integration & Fallback Strategy
 
-| Challenge Requirement | SaansSafe Feature |
-|---|---|
-| Low-emission daily routines | Hour-by-hour routine planner with safe/caution/avoid tags and timed tasks |
-| Indoor air quality hacks | 11 ranked measures from data catalogue, filtered by budget and risk level |
-| Sustainable alternatives | 8 personalised alternatives with PM2.5 exposure Δ and CO₂e Δ |
-| Direct impact explanation | What-If simulator with before/after PM2.5 dose (µg/day) and CO₂e (kg/year) |
-| Location-tailored guidance | City search + geolocation; Open-Meteo real weather per coordinates |
-| Lifestyle-tailored guidance | Household profile: commute mode, cooking fuel, purifier, vulnerable members |
-| GenAI mandatory | Gemini 2.5 Flash for narrative, multilingual, with structured JSON output |
+SaansSafe integrates Google Gemini via the official `google-genai` SDK:
 
----
-
-## 🏆 Self-Review Against Judging Criteria
-
-| Criterion | Impact Weight | Assessment | Key Evidence in Codebase |
-|---|---|---|---|
-| **Problem Statement Alignment** | **HIGH** | **Exemplary (10/10)** | Specifically addresses family winter smog navigation. Delivers all core pillars: live AQI with inversion detection, personalized risk calculation (0–100), 24h exposure routine, budget-filtered indoor hacks, sustainable alternatives, What-If dose (µg) and carbon (kg) simulator, and grounded Gemini follow-up chat. Mandatory GenAI utilized via official `google-genai` SDK with schema enforcement and resilient fallback. |
-| **Code Quality** | **HIGH** | **Exemplary (10/10)** | Clean layered architecture (`app/services`, `app/api`, `app/data`, `public/`). PURE deterministic functions for risk, routine, and impact models (zero I/O in calculation engines). 100% type hints across all modules. 100% docstrings on public symbols. `ruff check .` and `ruff format .` clean with 0 warnings. Modular `Makefile` and pinned dependency manifests. |
-| **Security** | **MEDIUM** | **Exemplary (10/10)** | Strict Pydantic v2 validation with `extra="forbid"`, min/max bounds and enums on all input models. Outbound SSRF allowlist (`open-meteo.com` only). In-memory sliding-window IP rate limiter. 64 KB request body cap. Strict CSP without inline scripts (`unsafe-inline` rejected). DOM textContent/createElement only (zero innerHTML XSS vulnerabilities). Prompt injection guard with 10+ regex patterns. Privacy-by-design: sensitive health conditions never persisted, coordinates rounded to 2 decimals before logging. |
-| **Efficiency** | **MEDIUM** | **Exemplary (10/10)** | Parallel upstream calls via `asyncio.gather`. Shared singleton `httpx.AsyncClient` with connection pooling (`max_connections=10`). 15-minute TTL cache on geocoding & air data. GZip compression middleware. Vercel edge caching (`s-maxage=900`). Pure vanilla ES modules frontend (zero Node.js build step, zero node_modules bloat). Lightweight inline SVGs and canvas gauge. Entire repository size is 0.79 MB (well below the 10 MB limit). |
-| **Testing** | **LOW** | **Exemplary (10/10)** | 152 automated tests in `tests/` covering risk engine, routine planner, impact calculations, recommendation filters, safety guards, Gemini fallback, and all API endpoints. 92% code coverage. Mocked external HTTP via `respx` and unit test patches. End-to-end live smoke test (`scripts/smoke_test.py`) passing against running server. |
-| **Accessibility** | **LOW** | **Exemplary (10/10)** | Fully compliant with WCAG 2.1 AA. Semantic landmarks, skip-to-content link, visible focus rings, full keyboard traversal. Screen reader announcements (`aria-live="polite"`). High contrast and large text toggles. Trilingual localization (English, Hindi, Tamil). Color + icon + label indicator (never color alone). Web Speech API read-aloud feature. Mobile-first responsive layout (360px+). Print stylesheet for family action plan. |
+1. **`POST /api/assess` (Structured Narrative)**:
+   - Formulates localized, empathetic family advice using `response_mime_type="application/json"` and strict Pydantic JSON schema constraints.
+   - Provides headline, narrative summary, targeted child/elder advice, and motivational nudges in the user's selected language (English, Hindi, or Tamil).
+2. **`POST /api/chat` (Grounded Q&A)**:
+   - Multi-turn conversational interface (up to 6 turns of context) answering queries such as *"Is it safe to take my daughter to soccer practice at 5 PM?"*.
+   - Strictly bounded to the current assessment facts.
+3. **Resilient Deterministic Fallback**:
+   - If `GEMINI_API_KEY` is not configured, quota is exhausted, or an upstream timeout occurs, the engine returns rule-based templates flagged with `ai_generated: false`. The application remains fully functional offline or without an API key.
+4. **Safety & Injection Defense**:
+   - Outbound prompts delimit user text, enforce strict character length bounds, strip control characters, filter prompt injection patterns, and automatically escalate severe respiratory symptoms to medical emergency services (call 112).
 
 ---
 
-## 🔒 Security
+## 🔒 Security & Privacy by Design
 
-| Control | Implementation |
-|---|---|
-| Input validation | Pydantic v2 strict models; enums, min/max bounds, pattern matching on all fields |
-| Rate limiting | Sliding-window in-memory middleware, 60 req/min per IP (configurable) |
-| Body size limit | 64 KB max; rejects oversized POST bodies before parsing |
-| Security headers | CSP (no unsafe-inline), X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy |
-| CORS | Restrictive; origins configurable via `ALLOWED_ORIGINS` env var |
-| XSS protection | Frontend uses `textContent` / DOM builders exclusively — never `innerHTML` for dynamic content |
-| Prompt injection | Regex-based detection of 10 injection patterns; user text delimited in prompts |
-| SSRF guard | Host allowlist for outbound HTTP (`open-meteo.com` only) |
-| Secret hygiene | No secrets in code; `.env.example` only; `.env` in `.gitignore` |
-| Privacy | Location rounded to 2 decimal places before any logging; conditions never stored |
-
----
-
-## ⚡ Efficiency
-
-| Technique | Detail |
-|---|---|
-| Parallel data fetch | `asyncio.gather(fetch_air_quality, fetch_weather_forecast)` |
-| TTL cache | `cachetools.TTLCache`, 15-min TTL, keyed by rounded lat/lon |
-| Shared HTTP client | Module-level `httpx.AsyncClient`; reused across warm Vercel invocations |
-| GZip middleware | `GZipMiddleware(minimum_size=500)` on all responses |
-| Edge cache | `s-maxage=900` on `/api/geocode` and weather routes via `vercel.json` |
-| Debounced search | 350 ms debounce on city search input |
-| Single Gemini call | One call per assessment; structured JSON output avoids post-processing |
-| Tight timeouts | Open-Meteo: 4 s; Gemini: 6 s; never hangs a request |
+- **Strict Input Validation**: Every request payload is validated via Pydantic v2 with `extra="forbid"`, regex constraints, and value bounds.
+- **Zero Health Data Persistence**: Health conditions (asthma, COPD, pregnancy) are processed in-memory for calculation and never written to disk or database.
+- **Coordinate Privacy**: Geolocation coordinates are rounded to two decimal places (~1 km grid) before caching or logging.
+- **Strict Content Security Policy (CSP)**: `default-src 'self'`, no inline scripts (`unsafe-inline` rejected), external scripts only.
+- **XSS Immunity**: Dynamic frontend rendering uses DOM `textContent` and `createElement` exclusively; `innerHTML` is never used for dynamic data.
+- **Rate Limiting & Body Caps**: In-memory sliding-window limiter (60 req/min per IP) and a 64 KB maximum request body threshold.
+- **SSRF Allowlisting**: Outbound backend network requests are strictly restricted to `open-meteo.com`.
 
 ---
 
 ## ♿ Accessibility (WCAG 2.1 AA)
 
-- Semantic HTML5 landmarks (`header`, `main`, `footer`, `section`, `nav`)
-- All form controls have `<label>` associations; no floating labels
-- Visible focus rings (3px outline) on all interactive elements
-- Full keyboard operation including tab traversal and arrow-key tab navigation
-- Skip-to-content link for screen readers
-- `aria-live="polite"` for results and chat; `aria-live="assertive"` for errors
-- Risk level always shown as icon + text + colour (never colour alone)
-- `prefers-reduced-motion` respected (all transitions disabled)
-- `prefers-color-scheme: dark` auto-applied
-- Large-text toggle and high-contrast toggle in header
-- Language switcher: English / हिन्दी / தமிழ்
-- "Read aloud" button using `SpeechSynthesisUtterance` with correct `lang` attribute
-- Print stylesheet for "Family Air Plan" (hides nav, shows all tabs)
-- Mobile-first responsive layout; tested down to 360 px width
+- Semantic HTML5 landmarks (`header`, `main`, `nav`, `section`, `footer`).
+- Full keyboard operability with visible focus outlines and skip-to-content links.
+- High contrast mode (`[data-hc="true"]`) and large text mode (`[data-large="true"]`).
+- Automatic system theme detection and a 1-click Dark/Light mode toggle.
+- Multilingual interface supporting English, Hindi (हिन्दी), and Tamil (தமிழ்).
+- Screen-reader announcements via `aria-live="polite"` and `aria-live="assertive"`.
+- Text-to-speech narration of risk summaries using the Web Speech API.
+- Dedicated print stylesheet for generating an offline "Family Air Action Plan".
 
 ---
 
-## 🧪 Testing
+## 🚀 Quickstart & Local Setup
+
+### Prerequisites
+- Python 3.11+
+- Git
+
+### Installation
 
 ```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
+# 1. Clone the repository
+git clone https://github.com/alansahai/promptwars-saanssafe.git
+cd promptwars-saanssafe
 
-# Run linting
-ruff check .
-
-# Run all tests with coverage
-pytest -q --cov=app --cov-report=term-missing
-
-# Or use make
-make test
-```
-
-**Test files:**
-- `test_risk_engine.py` — 30+ tests for all risk scoring edge cases and boundaries
-- `test_routine_planner.py` — Forecast parsing, window finding, routine generation
-- `test_impact.py` — Breathing rate, dose calculation, CO2e math (known numeric cases)
-- `test_recommendations.py` — Filtering by budget, risk level, purifier presence
-- `test_safety.py` — 10+ injection patterns, control char stripping, truncation
-- `test_llm_fallback.py` — No-key returns None, SDK exception returns None, emergency escalation
-- `test_api.py` — All routes with respx-mocked Open-Meteo, validation errors, rate limit
-
----
-
-## ⚠️ Assumptions & Limitations
-
-- **PM2.5 dose estimates** use WHO 2000 exposure factors (breathing rates). These are for illustrative ranking only — not clinical dose-response values.
-- **CO₂e factors** are approximate India averages from MoRTH / IPCC AR6. Not certified emission inventories.
-- **Open-Meteo resolution** is ~1 km weather grid + hourly AQI; not hyperlocal.
-- **In-memory cache and rate limiter** are per-instance on Vercel serverless. Warm instance reuse helps but is not guaranteed.
-- **Language support** (hi/ta) in AI responses depends on Gemini's capability for the given model; fallback is always English templates.
-- **Not medical advice.** For emergencies, call 112.
-
----
-
-## 🚀 Local Setup
-
-```bash
-# 1. Clone repo
-git clone https://github.com/YOUR_USERNAME/saanssafe.git
-cd saanssafe
-
-# 2. Create virtual environment
+# 2. Create and activate a virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
 
 # 3. Install dependencies
 pip install -r requirements-dev.txt
 
-# 4. Configure environment
+# 4. Configure environment variables (optional)
 cp .env.example .env
-# Edit .env: add your GEMINI_API_KEY (optional — app works without it)
+# Edit .env and set GEMINI_API_KEY if available (the app works with fallback if left blank)
 
-# 5. Run the development server
-uvicorn app.main:app --reload
-# → http://localhost:8000
-# → API docs at http://localhost:8000/api/docs (dev mode only)
+# 5. Start the development server
+uvicorn app.main:app --reload --port 8000
+```
 
-# 6. Run tests
+Open your browser at **`http://localhost:8000`**. Interactive API documentation is available at **`http://localhost:8000/api/docs`**.
+
+---
+
+## 🧪 Testing & Code Quality
+
+SaansSafe maintains test coverage across the calculation engines, API endpoints, and safety subsystems:
+
+```bash
+# Run code linting and formatting verification
 ruff check .
-pytest -q --cov=app
+ruff format --check .
+
+# Execute full automated test suite with coverage
+pytest -q --cov=app --cov-report=term-missing
+
+# Run end-to-end smoke verification against a live server
+python scripts/smoke_test.py http://localhost:8000
 ```
+
+### Test Suite Overview:
+- `test_risk_engine.py`: Multiplier bounds, inversion edge cases, vulnerability compounding limits.
+- `test_routine_planner.py`: Hourly forecast parsing, peak stagnation window detection.
+- `test_impact.py`: Mathematical verification of WHO inhalation doses and transport emission factors.
+- `test_recommendations.py`: Budget filtering, home profile matching, risk-dependent ranking.
+- `test_safety.py`: Prompt injection pattern filters, control character sanitization.
+- `test_llm_fallback.py`: Upstream failure fallback verification, JSON schema compliance.
+- `test_api.py`: Route validation, error codes, and rate limiting middleware.
 
 ---
 
-## 🌐 Deployment (Vercel)
+## 🌐 Deployment
 
-### Via Vercel Dashboard (Recommended)
-1. Push this repo to GitHub
-2. Go to [vercel.com/new](https://vercel.com/new) → Import repository
-3. Framework preset: **Other**
-4. Root directory: `.` (repo root)
-5. Add environment variables:
-   - `GEMINI_API_KEY` → your Google AI Studio key
-   - `GEMINI_MODEL` → `gemini-2.5-flash` (or leave default)
-   - `ENVIRONMENT` → `production`
-6. Click **Deploy**
+The application is structured for instant deployment to serverless platforms (e.g., Vercel, Render, Docker):
 
-### Via Vercel CLI
-```bash
-npm i -g vercel
-vercel login
-vercel --prod
-```
-
-### Post-deploy Smoke Test
-```bash
-python scripts/smoke_test.py https://your-app.vercel.app
-```
-
-### Serverless Constraints & Limitations
-- **Read-only filesystem**: no file writes, no SQLite
-- **In-memory state** (cache, rate limiter) is per-instance and best-effort
-- **Cold starts**: mitigated by keeping requirements.txt minimal; `google-genai` is the heaviest dependency
-- **10-second Vercel timeout**: Open-Meteo 4 s + Gemini 6 s = worst case 10 s. Automatic fallback ensures response
+### Deploying to Vercel
+1. Import the repository at [vercel.com/new](https://vercel.com/new).
+2. Framework Preset: **Other**.
+3. Configure Environment Variables:
+   - `GEMINI_API_KEY` (optional)
+   - `GEMINI_MODEL` (`gemini-2.5-flash`)
+   - `ENVIRONMENT` (`production`)
+4. Deploy. Static assets in `public/` are served at the CDN edge while backend routes route to `api/index.py`.
 
 ---
 
-## 📁 Project Structure
+## 📁 Repository Structure
 
 ```
-saanssafe/
+promptwars-saanssafe/
 ├── api/
-│   └── index.py              # Vercel entrypoint (re-exports app)
+│   └── index.py              # ASGI entrypoint for serverless deployment
 ├── app/
-│   ├── main.py               # FastAPI factory, middleware, router
-│   ├── config.py             # Pydantic-settings; all env config
-│   ├── schemas.py            # Pydantic v2 request/response models
+│   ├── main.py               # FastAPI application factory & middleware
+│   ├── config.py             # Pydantic-settings configuration
+│   ├── schemas.py            # Strict Pydantic v2 data models
 │   ├── api/
-│   │   └── routes.py         # Thin route handlers
+│   │   └── routes.py         # REST API route handlers
 │   ├── services/
-│   │   ├── air_data.py       # Open-Meteo clients, TTL cache
-│   │   ├── risk_engine.py    # PURE: risk scoring (deterministic)
-│   │   ├── routine_planner.py# PURE: hour-by-hour daily routine
-│   │   ├── recommendations.py# PURE: indoor hacks + alternatives
-│   │   ├── impact.py         # PURE: PM2.5 dose + CO2e calc
-│   │   ├── llm.py            # Gemini wrapper + fallback
-│   │   └── safety.py         # Sanitisation + injection guard
+│   │   ├── air_data.py       # Open-Meteo async client with TTL cache
+│   │   ├── risk_engine.py    # Deterministic risk engine (pure functions)
+│   │   ├── routine_planner.py# 24-hour routine exposure planner
+│   │   ├── recommendations.py# Indoor hacks and alternatives engine
+│   │   ├── impact.py         # Inhaled PM2.5 dose & carbon calculation
+│   │   ├── llm.py            # Gemini 2.5 Flash wrapper with schema output
+│   │   └── safety.py         # Input sanitization & injection guards
 │   └── data/
-│       ├── aqi_bands.py      # US AQI + India NAQI band tables
-│       ├── measures.py       # Indoor intervention catalogue
-│       └── emission_factors.py # CO2e + breathing rates
+│       ├── aqi_bands.py      # US AQI and CPCB NAQI band definitions
+│       ├── measures.py       # Catalogue of indoor air interventions
+│       └── emission_factors.py # Transport emission & breathing volume factors
 ├── public/
-│   ├── index.html            # Single-page app
-│   ├── styles.css            # Mobile-first WCAG AA stylesheet
-│   ├── app.js                # ES modules; XSS-safe DOM builders
-│   └── i18n.js               # EN/HI/TA translations
-├── tests/
-│   ├── test_risk_engine.py
-│   ├── test_routine_planner.py
-│   ├── test_impact.py
-│   ├── test_recommendations.py
-│   ├── test_safety.py
-│   ├── test_llm_fallback.py
-│   └── test_api.py
+│   ├── index.html            # Semantic single-page application
+│   ├── styles.css            # Atmospheric stylesheet with dark/light mode
+│   ├── app.js                # ES module application logic
+│   └── i18n.js               # Localization strings (EN, HI, TA)
+├── tests/                    # 152 automated test suites
 ├── scripts/
-│   └── smoke_test.py         # Live deployment verification
+│   └── smoke_test.py         # Deployment verification utility
 ├── docs/
-│   └── ARCHITECTURE.md
-├── .github/workflows/ci.yml  # Ruff + pytest CI
-├── vercel.json               # Routing + security headers
-├── requirements.txt          # Pinned runtime deps
-├── requirements-dev.txt      # + test/lint deps
-├── pyproject.toml            # Ruff + pytest config
-├── .env.example
-├── .vercelignore
+│   ├── ARCHITECTURE.md       # Detailed technical design document
+│   └── SUBMISSION_ANSWERS.md # Reference guide
+├── vercel.json               # Serverless routing & security header config
+├── requirements.txt          # Production dependencies
+├── requirements-dev.txt      # Development & testing dependencies
+├── pyproject.toml            # Tooling configuration (Ruff & Pytest)
+├── Makefile                  # Developer workflow targets
 └── README.md
 ```
 
 ---
 
-## 🔭 Future Work
+## ⚠️ Scientific Assumptions & Disclaimers
 
-- WebSocket live AQI updates (auto-refresh every 15 min)
-- Push notifications for AQI threshold alerts (via browser Notifications API)
-- Multi-city comparison dashboard
-- Historical trend charts (Open-Meteo historical archive API)
-- Offline-first PWA with service worker caching
-- Community reporting: burning incidents map (crowdsourced)
-- More Indian languages: Bengali, Marathi, Punjabi, Gujarati
-- Certified emission factors (MOEF India inventory integration)
+- **Inhaled Dose Estimation**: Based on standard WHO 2000 resting and active ventilation rates combined with micro-environment infiltration approximations. These provide comparative exposure insights and are not medical clinical assessments.
+- **Emission Estimates**: Carbon savings are calculated from average Indian urban transit factors (MoRTH / IPCC AR6).
+- **Data Sources**: Real-time ambient data provided by [Open-Meteo](https://open-meteo.com/) (open meteorological data).
+- **Medical Disclaimer**: SaansSafe is an informational guide. For severe respiratory symptoms or medical emergencies, contact emergency services (**112**) immediately.
 
 ---
 
-## 📝 Hackathon Submission Guide (Portal Answers)
+## 📄 License
 
-### Question 1: Mention the Gen AI services utilized in the submission, and where did you utilize it?
-> **Answer (Ready to paste):**
-> We utilized Google Gemini 2.5 Flash via the official `google-genai` SDK in two core areas:
-> 1. `/api/assess`: Generates grounded, empathetic family air-quality narratives tailored to the household's profile and local AQI. The model produces structured JSON (`response_mime_type="application/json"` with schema enforcement) containing headline, summary, family-specific protective tips, vulnerable group guidance (children & elderly), and a motivational nudge in English, Hindi (हिंदी), or Tamil (தமிழ்).
-> 2. `/api/chat`: Powers a grounded conversational assistant that answers follow-up air safety questions (e.g., commute timing, masks, ventilation) using the latest assessment as strict context, with multi-turn history (up to 6 turns), prompt-injection defense, and medical emergency escalation.
-> 3. Zero-Downtime Resilience: A rule-based deterministic fallback mirrors the Gemini output schema if quota, network, or key issues arise (`ai_generated: false`), ensuring 100% availability.
-
-### Question 2: Describe the changes/updates made in the deployed version
-> **Answer (Ready to paste):**
-> 1. Architected for Vercel Serverless with `api/index.py` ASGI bridge and zero-build vanilla ES modules in `public/`.
-> 2. Integrated real-time Open-Meteo Air Quality & Weather Forecast APIs with parallel fetching (`asyncio.gather`) and a 15-minute TTL cache keyed by coordinates rounded to 2 decimal places.
-> 3. Implemented a deterministic Risk Engine (0–100 score) combining US AQI, CPCB NAQI, meteorological inversion detection, vulnerability multipliers, and commute/home exposure factors.
-> 4. Added an interactive "What-If" Exposure Simulator calculating inhaled PM2.5 dose (µg/day) via WHO 2000 breathing models and weekly transport CO2e reductions.
-> 5. Hardened security with strict Pydantic v2 input bounds (`extra="forbid"`), in-memory sliding window rate limiting (60 req/min), SSRF host allowlisting, strict CSP, and XSS-immune DOM textContent rendering.
-> 6. Built a fully accessible WCAG 2.1 AA UI with keyboard navigation, trilingual support (EN/HI/TA), high contrast & large text modes, Web Speech API audio narration, and print stylesheet.
-
----
-
-*Built for Hackathon Challenge #6 · Powered by [Google Gemini](https://ai.google.dev/) and [Open-Meteo](https://open-meteo.com/)*
-*⚕️ Disclaimer: Informational only. Not medical advice. For emergencies, call **112**.*
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
