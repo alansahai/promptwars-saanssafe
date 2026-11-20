@@ -121,10 +121,14 @@
               spellcheck="false"
               aria-autocomplete="list"
               aria-controls="city-suggestions"
+              aria-describedby="hint-city-search"
               placeholder="e.g. Delhi, Mumbai…"
               data-i18n-placeholder="city_search_placeholder"
             />
           </div>
+          <span id="hint-city-search" class="field-hint" data-i18n="hint_city_search">
+            Enter your city or locality (e.g. Delhi, Lucknow, Patna) or click 'Use my location' to fetch live real-time smog &amp; weather readings.
+          </span>
           <ul id="city-suggestions" class="suggestions-list" role="listbox" aria-label="City suggestions" hidden></ul>
         </div>
 
@@ -173,30 +177,44 @@
           <div class="form-row">
             <div class="form-field">
               <label for="f-children" class="form-label" data-i18n="children_label">Children (&lt;12)</label>
-              <input id="f-children" type="number" class="form-input num-input" name="infants_children" min="0" max="20" value="0" />
+              <input id="f-children" type="number" class="form-input num-input" name="infants_children" min="0" max="20" value="0" aria-describedby="hint-children" />
+              <span id="hint-children" class="field-hint" data-i18n="hint_children">
+                Number of kids under 12. Young lungs inhale 50% more air per kg body weight and need stricter smog protection.
+              </span>
             </div>
             <div class="form-field">
               <label for="f-adults" class="form-label" data-i18n="adults_label">Adults</label>
-              <input id="f-adults" type="number" class="form-input num-input" name="adults" min="1" max="20" value="2" />
+              <input id="f-adults" type="number" class="form-input num-input" name="adults" min="1" max="20" value="2" aria-describedby="hint-adults" />
+              <span id="hint-adults" class="field-hint" data-i18n="hint_adults">
+                Number of adults (12–64 yrs) for baseline breathing volume and outdoor routine exposure modeling.
+              </span>
             </div>
             <div class="form-field">
               <label for="f-elderly" class="form-label" data-i18n="elderly_label">Elderly (65+)</label>
-              <input id="f-elderly" type="number" class="form-input num-input" name="elderly" min="0" max="20" value="0" />
+              <input id="f-elderly" type="number" class="form-input num-input" name="elderly" min="0" max="20" value="0" aria-describedby="hint-elderly" />
+              <span id="hint-elderly" class="field-hint" data-i18n="hint_elderly">
+                Number of seniors (65+). High particulate smog causes heightened blood pressure spikes and cardiovascular strain.
+              </span>
             </div>
           </div>
-          <div class="form-row check-row">
-            <label class="check-label">
-              <input type="checkbox" name="pregnant" class="check-input" />
-              <span data-i18n="pregnant_label">Pregnant member</span>
-            </label>
-            <label class="check-label">
-              <input type="checkbox" name="has_asthma_copd" class="check-input" />
-              <span data-i18n="asthma_label">Asthma / COPD</span>
-            </label>
-            <label class="check-label">
-              <input type="checkbox" name="has_heart_condition" class="check-input" />
-              <span data-i18n="heart_label">Heart condition</span>
-            </label>
+          <div class="check-group-wrap">
+            <span class="field-hint group-hint" data-i18n="hint_health_conditions">
+              Select all that apply. Activates tailored medical threshold alerts, safer ventilation timings, and specific mask advice.
+            </span>
+            <div class="form-row check-row">
+              <label class="check-label">
+                <input type="checkbox" name="pregnant" class="check-input" />
+                <span data-i18n="pregnant_label">Pregnant member</span>
+              </label>
+              <label class="check-label">
+                <input type="checkbox" name="has_asthma_copd" class="check-input" />
+                <span data-i18n="asthma_label">Asthma / COPD</span>
+              </label>
+              <label class="check-label">
+                <input type="checkbox" name="has_heart_condition" class="check-input" />
+                <span data-i18n="heart_label">Heart condition</span>
+              </label>
+            </div>
           </div>
         </fieldset>
 
@@ -206,31 +224,42 @@
           <div class="form-row">
             <div class="form-field">
               <label for="f-windows" class="form-label" data-i18n="windows_label">Window type</label>
-              <select id="f-windows" name="windows_type" class="form-select">
+              <select id="f-windows" name="windows_type" class="form-select" aria-describedby="hint-windows">
                 <option value="unknown" data-i18n="windows_unknown">Unknown</option>
                 <option value="single" data-i18n="windows_single">Single-pane</option>
                 <option value="double" data-i18n="windows_double">Double-pane</option>
               </select>
+              <span id="hint-windows" class="field-hint" data-i18n="hint_windows">
+                Select your window glazing. Double-pane windows block outdoor PM2.5 infiltration up to 70% better than single glass.
+              </span>
             </div>
             <div class="form-field">
               <label for="f-fuel" class="form-label" data-i18n="fuel_label">Cooking fuel</label>
-              <select id="f-fuel" name="cooking_fuel" class="form-select">
+              <select id="f-fuel" name="cooking_fuel" class="form-select" aria-describedby="hint-fuel">
                 <option value="lpg" data-i18n="fuel_lpg">LPG / PNG</option>
                 <option value="induction" data-i18n="fuel_induction">Induction</option>
                 <option value="firewood_biomass" data-i18n="fuel_biomass">Firewood / Biomass</option>
                 <option value="other" data-i18n="fuel_other">Other</option>
               </select>
+              <span id="hint-fuel" class="field-hint" data-i18n="hint_fuel">
+                Primary kitchen fuel. Induction and piped gas produce negligible soot, whereas biomass creates hazardous indoor smoke spikes.
+              </span>
             </div>
           </div>
-          <div class="form-row check-row">
-            <label class="check-label">
-              <input type="checkbox" name="has_purifier" class="check-input" />
-              <span data-i18n="purifier_label">Air purifier</span>
-            </label>
-            <label class="check-label">
-              <input type="checkbox" name="uses_ac_or_cooler" class="check-input" />
-              <span data-i18n="ac_label">AC / Cooler</span>
-            </label>
+          <div class="check-group-wrap">
+            <span class="field-hint group-hint" data-i18n="hint_home_mitigation">
+              Check if you regularly operate an air purifier or AC/cooler to calculate realistic indoor clean-air filtration.
+            </span>
+            <div class="form-row check-row">
+              <label class="check-label">
+                <input type="checkbox" name="has_purifier" class="check-input" />
+                <span data-i18n="purifier_label">Air purifier</span>
+              </label>
+              <label class="check-label">
+                <input type="checkbox" name="uses_ac_or_cooler" class="check-input" />
+                <span data-i18n="ac_label">AC / Cooler</span>
+              </label>
+            </div>
           </div>
         </fieldset>
 
@@ -240,7 +269,7 @@
           <div class="form-row">
             <div class="form-field">
               <label for="f-mode" class="form-label" data-i18n="mode_label">Primary mode</label>
-              <select id="f-mode" name="commute_mode" class="form-select">
+              <select id="f-mode" name="commute_mode" class="form-select" aria-describedby="hint-mode">
                 <option value="car" data-i18n="mode_car">Car</option>
                 <option value="metro" data-i18n="mode_metro">Metro / Train</option>
                 <option value="bus" data-i18n="mode_bus">Bus</option>
@@ -249,31 +278,48 @@
                 <option value="cycle" data-i18n="mode_cycle">Cycle</option>
                 <option value="walk" data-i18n="mode_walk">Walk</option>
               </select>
+              <span id="hint-mode" class="field-hint" data-i18n="hint_mode">
+                Your main travel mode. Open vehicles (bikes, autos) expose riders to 3–4x higher particulate concentrations than closed transit.
+              </span>
             </div>
             <div class="form-field">
               <label for="f-distance" class="form-label" data-i18n="distance_label">Distance (km, one-way)</label>
-              <input id="f-distance" type="number" class="form-input num-input" name="commute_distance_km" min="0" max="100" value="10" step="0.5" />
+              <input id="f-distance" type="number" class="form-input num-input" name="commute_distance_km" min="0" max="100" value="10" step="0.5" aria-describedby="hint-distance" />
+              <span id="hint-distance" class="field-hint" data-i18n="hint_distance">
+                One-way travel distance in kilometres to compute inhaled transit aerosol volume and clean-commute emission savings.
+              </span>
             </div>
             <div class="form-field">
               <label for="f-days" class="form-label" data-i18n="days_label">Days/week</label>
-              <input id="f-days" type="number" class="form-input num-input" name="commute_days_per_week" min="0" max="7" value="5" />
+              <input id="f-days" type="number" class="form-input num-input" name="commute_days_per_week" min="0" max="7" value="5" aria-describedby="hint-days" />
+              <span id="hint-days" class="field-hint" data-i18n="hint_days">
+                Weekly commute frequency (enter 0 for remote/work-from-home, up to 7) to model your cumulative 7-day dosage.
+              </span>
             </div>
           </div>
-          <div class="form-row check-row">
-            <label class="check-label">
-              <input type="checkbox" name="school_run" class="check-input" />
-              <span data-i18n="school_label">School drop-off</span>
-            </label>
-            <label class="check-label">
-              <input type="checkbox" name="morning_walker_jogger" class="check-input" />
-              <span data-i18n="jogger_label">Morning walk / jog</span>
-            </label>
+          <div class="check-group-wrap">
+            <span class="field-hint group-hint" data-i18n="hint_routine_outings">
+              Check if family members venture out in early mornings when winter temperature inversion traps smog at ground level.
+            </span>
+            <div class="form-row check-row">
+              <label class="check-label">
+                <input type="checkbox" name="school_run" class="check-input" />
+                <span data-i18n="school_label">School drop-off</span>
+              </label>
+              <label class="check-label">
+                <input type="checkbox" name="morning_walker_jogger" class="check-input" />
+                <span data-i18n="jogger_label">Morning walk / jog</span>
+              </label>
+            </div>
           </div>
         </fieldset>
 
         <!-- Budget -->
         <fieldset class="form-group">
           <legend class="form-legend" data-i18n="budget_legend">Budget for Improvements</legend>
+          <span class="field-hint group-hint" data-i18n="hint_budget">
+            Choose your spending preference. We always prioritize free, zero-cost behavioral timing hacks and DIY filters first.
+          </span>
           <div class="form-row radio-row" role="radiogroup" aria-label="Budget tier">
             <label class="radio-label">
               <input type="radio" name="budget" value="low" class="radio-input" />
@@ -548,12 +594,16 @@
             <label for="chat-input" class="sr-only" data-i18n="chat_input_label">Your question</label>
             <input id="chat-input" type="text" class="form-input chat-input" maxlength="500"
               placeholder="e.g. Is it safe to take my daughter to the park at 6 pm?"
-              data-i18n-placeholder="chat_placeholder" />
+              data-i18n-placeholder="chat_placeholder"
+              aria-describedby="hint-chat" />
             <button id="btn-chat-send" class="btn btn-primary" type="button">
               <span aria-hidden="true">➤</span>
               <span class="sr-only" data-i18n="send">Send</span>
             </button>
           </div>
+          <span id="hint-chat" class="field-hint chat-hint" data-i18n="hint_chat">
+            Ask any question about today's smog levels, safe outdoor exercise windows, mask ratings (N95 vs cloth), or DIY air purifier builds.
+          </span>
           <p class="chat-disclaimer" data-i18n="chat_disclaimer">
             ⚕️ Not medical advice. For emergencies, call 112.
           </p>

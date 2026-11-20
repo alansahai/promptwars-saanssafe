@@ -849,6 +849,40 @@ main {
   margin-top: 1.5rem;
 }
 
+/* ===== INPUT GUIDANCE HELPER TEXT (MICRO-COPY) ===== */
+.field-hint {
+  display: block;
+  font-size: 0.785rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  opacity: 0.92;
+  margin-top: 0.35rem;
+  letter-spacing: 0.01em;
+}
+
+[data-theme="dark"] .field-hint {
+  color: #94a3b8;
+}
+
+[data-theme="light"] .field-hint {
+  color: #64748b;
+}
+
+.check-group-wrap {
+  margin-top: 0.9rem;
+}
+
+.group-hint {
+  margin-top: 0.25rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.81rem;
+}
+
+.chat-hint {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
 /* ===== HIGH IMPACT BUTTONS ===== */
 .btn {
   display: inline-flex;
