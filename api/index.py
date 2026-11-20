@@ -52,14 +52,16 @@ async def app(scope: dict, receive: callable, send: callable) -> None:
             "files_in_api": os.listdir(_dir) if os.path.exists(_dir) else [],
         }
         body = json.dumps(err_data, indent=2).encode("utf-8")
-        await send({
-            "type": "http.response.start",
-            "status": 500,
-            "headers": [
-                (b"content-type", b"application/json"),
-                (b"content-length", str(len(body)).encode("ascii")),
-            ],
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 500,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode("ascii")),
+                ],
+            }
+        )
         await send({"type": "http.response.body", "body": body})
         return
 
@@ -74,14 +76,16 @@ async def app(scope: dict, receive: callable, send: callable) -> None:
             "scope_path": scope.get("path"),
         }
         body = json.dumps(err_data, indent=2).encode("utf-8")
-        await send({
-            "type": "http.response.start",
-            "status": 500,
-            "headers": [
-                (b"content-type", b"application/json"),
-                (b"content-length", str(len(body)).encode("ascii")),
-            ],
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 500,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode("ascii")),
+                ],
+            }
+        )
         await send({"type": "http.response.body", "body": body})
 
 

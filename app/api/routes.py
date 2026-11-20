@@ -119,7 +119,9 @@ async def geocode(
 
 
 @router.post("/api/assess", response_model=AssessmentResponse, tags=["assessment"])
-@router.post("/assess", response_model=AssessmentResponse, tags=["assessment"], include_in_schema=False)
+@router.post(
+    "/assess", response_model=AssessmentResponse, tags=["assessment"], include_in_schema=False
+)
 async def assess(
     body: AssessRequest,
     settings: Settings = Depends(get_settings),
@@ -230,7 +232,9 @@ async def assess(
 
 
 @router.post("/api/simulate", response_model=SimulateResponse, tags=["simulator"])
-@router.post("/simulate", response_model=SimulateResponse, tags=["simulator"], include_in_schema=False)
+@router.post(
+    "/simulate", response_model=SimulateResponse, tags=["simulator"], include_in_schema=False
+)
 async def simulate(body: SimulateRequest) -> SimulateResponse:
     """What-If impact simulator: before vs after chosen actions.
 
