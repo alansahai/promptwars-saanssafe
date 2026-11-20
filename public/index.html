@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="SaansSafe — Smog-navigation assistant for urban families. Get personalised air quality guidance, indoor tips, and sustainable alternatives." />
+  <title>SaansSafe — Your Family's Air Quality Guide</title>
+
+  <!-- Canonical stylesheet — no inline scripts (CSP compliant) -->
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Print stylesheet for "Family Air Plan" -->
+  <link rel="stylesheet" href="styles.css" media="print" />
+
+  <!-- Preconnect to API (same origin) -->
+  <link rel="preconnect" href="/" />
+
+  <!-- Favicon inline SVG -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>" />
+</head>
+<body>
+  <!-- Skip navigation link for keyboard/screen reader users -->
+  <a href="#main-content" class="skip-link">Skip to main content</a>
+
+  <!-- ===== HEADER ===== -->
+  <header class="app-header" role="banner">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-icon" aria-hidden="true">🌱</span>
+        <span class="brand-name">SaansSafe</span>
+        <span class="brand-tagline">Your Family's Air Quality Guide</span>
+      </div>
+      <nav class="header-controls" aria-label="Accessibility and language controls">
+        <!-- Language switcher -->
+        <label for="lang-select" class="sr-only">Language</label>
+        <select id="lang-select" class="ctrl-select" aria-label="Select language">
+          <option value="en">English</option>
+          <option value="hi">हिन्दी</option>
+          <option value="ta">தமிழ்</option>
+        </select>
+
+        <!-- Large text toggle -->
+        <button id="btn-large-text" class="ctrl-btn" aria-pressed="false" title="Toggle large text">
+          <span aria-hidden="true">A+</span>
+          <span class="sr-only">Toggle large text</span>
+        </button>
+
+        <!-- High contrast toggle -->
+        <button id="btn-high-contrast" class="ctrl-btn" aria-pressed="false" title="Toggle high contrast">
+          <span aria-hidden="true">◑</span>
+          <span class="sr-only">Toggle high contrast</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===== MAIN ===== -->
+  <main id="main-content" role="main">
+
+    <!-- ===== LOCATION SECTION ===== -->
+    <section class="section card" aria-labelledby="location-heading">
+      <h2 id="location-heading" class="section-title">
+        <span aria-hidden="true">📍</span> <span data-i18n="location_title">Your Location</span>
+      </h2>
+
+      <div class="location-row">
+        <div class="search-wrap">
+          <label for="city-search" class="form-label" data-i18n="city_search_label">Search city</label>
+          <div class="search-input-wrap" role="combobox" aria-expanded="false" aria-haspopup="listbox" aria-owns="city-suggestions">
+            <input
+              id="city-search"
+              type="search"
+              class="form-input"
+              autocomplete="off"
+              spellcheck="false"
+              aria-autocomplete="list"
+              aria-controls="city-suggestions"
+              placeholder="e.g. Delhi, Mumbai…"
+              data-i18n-placeholder="city_search_placeholder"
+            />
+          </div>
+          <ul id="city-suggestions" class="suggestions-list" role="listbox" aria-label="City suggestions" hidden></ul>
+        </div>
+
+        <span class="or-divider" aria-hidden="true" data-i18n="or">or</span>
+
+        <button id="btn-geolocate" class="btn btn-secondary" type="button">
+          <span aria-hidden="true">🌐</span>
+          <span data-i18n="use_my_location">Use my location</span>
+        </button>
+
+        <button id="btn-demo" class="btn btn-outline" type="button">
+          <span aria-hidden="true">🏙️</span>
+          <span data-i18n="try_demo">Try Delhi Demo</span>
+        </button>
+      </div>
+
+      <div id="location-display" class="location-display" aria-live="polite" hidden>
+        <span aria-hidden="true">📌</span>
+        <span id="location-text"></span>
+      </div>
+    </section>
+
+    <!-- ===== PROFILE SECTION ===== -->
+    <section class="section card" aria-labelledby="profile-heading">
+      <h2 id="profile-heading" class="section-title">
+        <span aria-hidden="true">👨‍👩‍👧‍👦</span> <span data-i18n="profile_title">Your Household Profile</span>
+      </h2>
+      <p class="section-hint" data-i18n="profile_hint">
+        Your health data is used only for this calculation — never stored or shared.
+      </p>
+
+      <form id="profile-form" novalidate aria-label="Household profile form">
+        <!-- Members -->
+        <fieldset class="form-group">
+          <legend class="form-legend" data-i18n="members_legend">Household Members</legend>
+          <div class="form-row">
+            <div class="form-field">
+              <label for="f-children" class="form-label" data-i18n="children_label">Children (&lt;12)</label>
+              <input id="f-children" type="number" class="form-input num-input" name="infants_children" min="0" max="20" value="0" />
+            </div>
+            <div class="form-field">
+              <label for="f-adults" class="form-label" data-i18n="adults_label">Adults</label>
+              <input id="f-adults" type="number" class="form-input num-input" name="adults" min="1" max="20" value="2" />
+            </div>
+            <div class="form-field">
+              <label for="f-elderly" class="form-label" data-i18n="elderly_label">Elderly (65+)</label>
+              <input id="f-elderly" type="number" class="form-input num-input" name="elderly" min="0" max="20" value="0" />
+            </div>
+          </div>
+          <div class="form-row check-row">
+            <label class="check-label">
+              <input type="checkbox" name="pregnant" class="check-input" />
+              <span data-i18n="pregnant_label">Pregnant member</span>
+            </label>
+            <label class="check-label">
+              <input type="checkbox" name="has_asthma_copd" class="check-input" />
+              <span data-i18n="asthma_label">Asthma / COPD</span>
+            </label>
+            <label class="check-label">
+              <input type="checkbox" name="has_heart_condition" class="check-input" />
+              <span data-i18n="heart_label">Heart condition</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- Home -->
+        <fieldset class="form-group">
+          <legend class="form-legend" data-i18n="home_legend">Your Home</legend>
+          <div class="form-row">
+            <div class="form-field">
+              <label for="f-windows" class="form-label" data-i18n="windows_label">Window type</label>
+              <select id="f-windows" name="windows_type" class="form-select">
+                <option value="unknown" data-i18n="windows_unknown">Unknown</option>
+                <option value="single" data-i18n="windows_single">Single-pane</option>
+                <option value="double" data-i18n="windows_double">Double-pane</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label for="f-fuel" class="form-label" data-i18n="fuel_label">Cooking fuel</label>
+              <select id="f-fuel" name="cooking_fuel" class="form-select">
+                <option value="lpg" data-i18n="fuel_lpg">LPG / PNG</option>
+                <option value="induction" data-i18n="fuel_induction">Induction</option>
+                <option value="firewood_biomass" data-i18n="fuel_biomass">Firewood / Biomass</option>
+                <option value="other" data-i18n="fuel_other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row check-row">
+            <label class="check-label">
+              <input type="checkbox" name="has_purifier" class="check-input" />
+              <span data-i18n="purifier_label">Air purifier</span>
+            </label>
+            <label class="check-label">
+              <input type="checkbox" name="uses_ac_or_cooler" class="check-input" />
+              <span data-i18n="ac_label">AC / Cooler</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- Commute -->
+        <fieldset class="form-group">
+          <legend class="form-legend" data-i18n="commute_legend">Your Commute</legend>
+          <div class="form-row">
+            <div class="form-field">
+              <label for="f-mode" class="form-label" data-i18n="mode_label">Primary mode</label>
+              <select id="f-mode" name="commute_mode" class="form-select">
+                <option value="car" data-i18n="mode_car">Car</option>
+                <option value="metro" data-i18n="mode_metro">Metro / Train</option>
+                <option value="bus" data-i18n="mode_bus">Bus</option>
+                <option value="two_wheeler" data-i18n="mode_two_wheeler">Two-wheeler</option>
+                <option value="auto" data-i18n="mode_auto">Auto-rickshaw</option>
+                <option value="cycle" data-i18n="mode_cycle">Cycle</option>
+                <option value="walk" data-i18n="mode_walk">Walk</option>
+              </select>
+            </div>
+            <div class="form-field">
+              <label for="f-distance" class="form-label" data-i18n="distance_label">Distance (km, one-way)</label>
+              <input id="f-distance" type="number" class="form-input num-input" name="commute_distance_km" min="0" max="100" value="10" step="0.5" />
+            </div>
+            <div class="form-field">
+              <label for="f-days" class="form-label" data-i18n="days_label">Days/week</label>
+              <input id="f-days" type="number" class="form-input num-input" name="commute_days_per_week" min="0" max="7" value="5" />
+            </div>
+          </div>
+          <div class="form-row check-row">
+            <label class="check-label">
+              <input type="checkbox" name="school_run" class="check-input" />
+              <span data-i18n="school_label">School drop-off</span>
+            </label>
+            <label class="check-label">
+              <input type="checkbox" name="morning_walker_jogger" class="check-input" />
+              <span data-i18n="jogger_label">Morning walk / jog</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <!-- Budget -->
+        <fieldset class="form-group">
+          <legend class="form-legend" data-i18n="budget_legend">Budget for Improvements</legend>
+          <div class="form-row radio-row" role="radiogroup" aria-label="Budget tier">
+            <label class="radio-label">
+              <input type="radio" name="budget" value="low" class="radio-input" />
+              <span data-i18n="budget_low">🪙 Low (free / &lt;₹500)</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="budget" value="medium" class="radio-input" checked />
+              <span data-i18n="budget_medium">💰 Medium (₹500–5,000)</span>
+            </label>
+            <label class="radio-label">
+              <input type="radio" name="budget" value="high" class="radio-input" />
+              <span data-i18n="budget_high">💎 High (₹5,000+)</span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary btn-large" id="btn-assess">
+            <span class="btn-icon" aria-hidden="true">🔍</span>
+            <span data-i18n="get_assessment">Get My Assessment</span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ===== RESULTS SECTION (hidden until assessment runs) ===== -->
+    <section id="results-section" class="section" hidden aria-labelledby="results-heading" aria-live="polite">
+      <h2 id="results-heading" class="sr-only" data-i18n="results_heading">Assessment Results</h2>
+
+      <!-- Loading skeleton -->
+      <div id="loading-skeleton" class="loading-container" hidden aria-label="Loading assessment" role="status">
+        <div class="skeleton-pulse">
+          <div class="sk-gauge"></div>
+          <div class="sk-text"></div>
+          <div class="sk-text sk-short"></div>
+        </div>
+        <p class="loading-text" data-i18n="loading_text">Analysing air quality for your household…</p>
+      </div>
+
+      <!-- Error state -->
+      <div id="error-banner" class="error-banner" hidden role="alert" aria-live="assertive">
+        <span class="error-icon" aria-hidden="true">⚠️</span>
+        <span id="error-message"></span>
+        <button id="btn-retry" class="btn btn-sm btn-outline" data-i18n="retry">Retry</button>
+      </div>
+
+      <!-- AI badge -->
+      <div id="ai-badge" class="ai-badge" hidden role="note">
+        <span aria-hidden="true">✨</span>
+        <span id="ai-badge-text" data-i18n="ai_powered">AI-powered insights by Gemini</span>
+      </div>
+
+      <!-- === AQI GAUGE + RISK BADGE === -->
+      <div class="results-hero card" id="hero-card" hidden>
+        <div class="gauge-wrap">
+          <canvas id="aqi-gauge" width="200" height="120" aria-label="AQI Gauge" role="img"></canvas>
+          <div class="gauge-label" id="gauge-aqi-value" aria-live="polite"></div>
+          <div class="gauge-subtext">US AQI</div>
+        </div>
+        <div class="risk-info">
+          <div class="risk-badge" id="risk-badge">
+            <span class="risk-icon" id="risk-icon" aria-hidden="true"></span>
+            <span class="risk-level" id="risk-level-text"></span>
+            <span class="risk-score" id="risk-score-text"></span>
+          </div>
+          <h2 class="headline" id="headline-text"></h2>
+          <p class="summary" id="summary-text"></p>
+          <p class="inversion-flag" id="inversion-banner" hidden>
+            <span aria-hidden="true">🌫️</span>
+            <span data-i18n="inversion_detected">Atmospheric inversion detected — pollutants trapped near ground level</span>
+          </p>
+          <!-- Why this level accordion -->
+          <details class="accordion" id="why-accordion">
+            <summary class="accordion-summary" data-i18n="why_this_level">
+              Why this risk level? <span aria-hidden="true">▼</span>
+            </summary>
+            <ul id="risk-reasons-list" class="reasons-list" role="list"></ul>
+          </details>
+          <!-- Read aloud -->
+          <button id="btn-read-aloud" class="btn btn-sm btn-outline" type="button">
+            <span aria-hidden="true">🔊</span>
+            <span data-i18n="read_aloud">Read aloud</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- === PRINT HEADER (visible only in print) === -->
+      <div class="print-header">
+        <h1>SaansSafe — Family Air Plan</h1>
+        <p class="print-date" id="print-date"></p>
+        <p class="print-disclaimer">This is informational only. Not medical advice.</p>
+      </div>
+
+      <!-- === TABS === -->
+      <div class="tabs-wrap" id="tabs-wrap" hidden>
+        <div class="tabs" role="tablist" aria-label="Result sections">
+          <button class="tab active" role="tab" aria-selected="true" aria-controls="tab-routine" id="tab-btn-routine" data-i18n="tab_routine">📅 Daily Routine</button>
+          <button class="tab" role="tab" aria-selected="false" aria-controls="tab-hacks" id="tab-btn-hacks" data-i18n="tab_hacks">🏠 Indoor Tips</button>
+          <button class="tab" role="tab" aria-selected="false" aria-controls="tab-alternatives" id="tab-btn-alternatives" data-i18n="tab_alternatives">🌱 Alternatives</button>
+          <button class="tab" role="tab" aria-selected="false" aria-controls="tab-simulator" id="tab-btn-simulator" data-i18n="tab_simulator">🔬 What-If</button>
+          <button class="tab" role="tab" aria-selected="false" aria-controls="tab-chat" id="tab-btn-chat" data-i18n="tab_chat">💬 Chat</button>
+        </div>
+
+        <!-- ROUTINE TAB -->
+        <div id="tab-routine" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-routine">
+          <!-- Timeline heat strip -->
+          <div class="heat-strip-wrap" aria-label="24-hour AQI forecast">
+            <div class="heat-strip-labels">
+              <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span>
+            </div>
+            <div id="heat-strip" class="heat-strip" role="img" aria-label="Hourly AQI colour strip"></div>
+            <div class="heat-strip-legend">
+              <span class="legend-dot" style="background:#00e400"></span> <span data-i18n="safe">Safe</span>
+              <span class="legend-dot" style="background:#ff7e00"></span> <span data-i18n="caution">Caution</span>
+              <span class="legend-dot" style="background:#ff0000"></span> <span data-i18n="avoid">Avoid</span>
+            </div>
+          </div>
+          <!-- Timeline tasks -->
+          <ol id="timeline-list" class="timeline-list" aria-label="Daily routine tasks"></ol>
+          <!-- Family & kids tips -->
+          <div id="tips-section" class="tips-grid" hidden>
+            <div class="tips-card">
+              <h3 class="tips-title" data-i18n="family_tips_title">👨‍👩‍👧 Family Tips</h3>
+              <ul id="family-tips-list" class="tips-list"></ul>
+            </div>
+            <div class="tips-card">
+              <h3 class="tips-title" data-i18n="kids_elder_title">🧒👴 Kids & Elders</h3>
+              <ul id="kids-tips-list" class="tips-list"></ul>
+            </div>
+          </div>
+          <p class="motivational-nudge" id="motivational-nudge" hidden></p>
+        </div>
+
+        <!-- INDOOR HACKS TAB -->
+        <div id="tab-hacks" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-hacks" hidden>
+          <div id="hacks-grid" class="cards-grid" role="list" aria-label="Indoor air improvement tips"></div>
+        </div>
+
+        <!-- ALTERNATIVES TAB -->
+        <div id="tab-alternatives" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-alternatives" hidden>
+          <div id="alternatives-grid" class="cards-grid" role="list" aria-label="Sustainable alternatives"></div>
+        </div>
+
+        <!-- WHAT-IF SIMULATOR TAB -->
+        <div id="tab-simulator" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-simulator" hidden>
+          <h3 class="tab-heading" data-i18n="simulator_title">What-If Impact Simulator</h3>
+          <p class="tab-desc" data-i18n="simulator_desc">
+            Toggle actions below to see your before-vs-after air exposure and emissions impact.
+          </p>
+          <div id="sim-actions" class="sim-actions" role="group" aria-label="Simulation actions"></div>
+          <div id="sim-results" class="sim-results" hidden>
+            <div class="sim-chart-wrap">
+              <canvas id="sim-chart" width="600" height="200" aria-label="Before vs after bar chart" role="img"></canvas>
+            </div>
+            <div class="sim-metrics">
+              <div class="metric-card">
+                <div class="metric-label" data-i18n="pm25_before">PM2.5 Dose (Before)</div>
+                <div class="metric-value" id="sim-before-dose">—</div>
+                <div class="metric-unit">µg/day</div>
+              </div>
+              <div class="metric-card highlight">
+                <div class="metric-label" data-i18n="pm25_after">PM2.5 Dose (After)</div>
+                <div class="metric-value" id="sim-after-dose">—</div>
+                <div class="metric-unit">µg/day</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label" data-i18n="co2_saved">CO₂e Saved/Year</div>
+                <div class="metric-value" id="sim-co2-saved">—</div>
+                <div class="metric-unit">kg</div>
+              </div>
+              <div class="metric-card">
+                <div class="metric-label" data-i18n="equiv_km">Equivalent km not driven</div>
+                <div class="metric-value" id="sim-equiv-km">—</div>
+                <div class="metric-unit">km/year</div>
+              </div>
+            </div>
+            <!-- How we calculated this -->
+            <details class="accordion">
+              <summary class="accordion-summary" data-i18n="how_calculated">How we calculated this ▼</summary>
+              <div id="sim-formula" class="formula-box"></div>
+              <ul id="sim-assumptions" class="assumptions-list"></ul>
+            </details>
+          </div>
+        </div>
+
+        <!-- CHAT TAB -->
+        <div id="tab-chat" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-chat" hidden>
+          <h3 class="tab-heading" data-i18n="chat_title">Ask SaansSafe</h3>
+          <p class="tab-desc" data-i18n="chat_desc">Ask follow-up questions about air quality, your routine, or precautions.</p>
+          <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-label="Chat conversation"></div>
+          <div class="chat-input-wrap">
+            <label for="chat-input" class="sr-only" data-i18n="chat_input_label">Your question</label>
+            <input id="chat-input" type="text" class="form-input chat-input" maxlength="500"
+              placeholder="e.g. Is it safe to take my daughter to the park at 6 pm?"
+              data-i18n-placeholder="chat_placeholder" />
+            <button id="btn-chat-send" class="btn btn-primary" type="button">
+              <span aria-hidden="true">➤</span>
+              <span class="sr-only" data-i18n="send">Send</span>
+            </button>
+          </div>
+          <p class="chat-disclaimer" data-i18n="chat_disclaimer">
+            ⚕️ Not medical advice. For emergencies, call 112.
+          </p>
+        </div>
+      </div>
+
+      <!-- Print button -->
+      <div class="print-actions" id="print-actions" hidden>
+        <button class="btn btn-outline no-print" onclick="window.print()" data-i18n="print_plan">
+          🖨️ Print Family Air Plan
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== FOOTER ===== -->
+  <footer class="app-footer" role="contentinfo">
+    <p>
+      <strong>Data:</strong>
+      <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a>
+      (open-source weather &amp; air quality API, no API key required) ·
+      <a href="https://www.airnow.gov/aqi/aqi-basics/" target="_blank" rel="noopener noreferrer">US EPA AQI</a> ·
+      <a href="https://cpcb.nic.in/" target="_blank" rel="noopener noreferrer">India CPCB NAQI</a>
+    </p>
+    <p class="disclaimer">
+      ⚕️ <strong>Disclaimer:</strong> SaansSafe is for informational purposes only.
+      It is NOT medical advice. For severe breathing difficulties or emergencies, call <strong>112</strong> immediately.
+    </p>
+    <p class="footer-credit">
+      Built for Hackathon Challenge #6 · Powered by
+      <a href="https://ai.google.dev/" target="_blank" rel="noopener noreferrer">Google Gemini</a>
+    </p>
+  </footer>
+
+  <!-- Main application JS (ES modules; CSP compliant — no inline scripts) -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
