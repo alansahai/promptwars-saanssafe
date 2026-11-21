@@ -39,12 +39,12 @@ const DELHI_DEMO = {
 };
 
 const SIM_ACTIONS = [
-  { id: "add_air_purifier", label: "Add air purifier", desc: "Run HEPA purifier indoors" },
-  { id: "switch_to_induction", label: "Switch to induction cooking", desc: "Replace LPG/biomass" },
-  { id: "switch_commute_to_metro", label: "Switch commute to metro", desc: "From car/two-wheeler" },
-  { id: "switch_commute_to_bus", label: "Switch commute to bus", desc: "From car/two-wheeler" },
-  { id: "switch_commute_to_cycle", label: "Cycle for short trips", desc: "Under 3 km" },
-  { id: "work_from_home_2_days", label: "Work from home 2 days/week", desc: "Skip commute twice" },
+  { id: "add_air_purifier", icon: "🏠", label: "Add HEPA Air Purifier", tag: "Indoor Shield", desc: "Run true HEPA filtration in bedrooms & living areas (-50% infiltration)" },
+  { id: "switch_to_induction", icon: "🍳", label: "Switch to Induction Cooking", tag: "Clean Kitchen", desc: "Replace LPG / biomass with soot-free electric cooktop" },
+  { id: "switch_commute_to_metro", icon: "🚇", label: "Switch Commute to Metro", tag: "Rapid Transit", desc: "Trade road congestion for filtered AC carriages (-40% transit smog)" },
+  { id: "switch_commute_to_bus", icon: "🚌", label: "Switch Commute to Electric Bus", tag: "Shared Transit", desc: "Reduce personal tailpipe inhalation and local road vehicle count" },
+  { id: "switch_commute_to_cycle", icon: "🚲", label: "Cycle / Walk for Trips <3 km", tag: "Zero Tailpipe", desc: "Avoid cold-start petrol engine emissions for quick neighbourhood errands" },
+  { id: "work_from_home_2_days", icon: "💻", label: "Work From Home 2 Days/Week", tag: "Avoid Peak Smog", desc: "Completely eliminate travel exposure on 2 heaviest smog weekdays" },
 ];
 
 // ===== STATE =====
@@ -329,23 +329,70 @@ function renderAlternatives(alts) {
   const grid = $("#alternatives-grid");
   if (!grid) return;
   grid.textContent = "";
+
   alts.forEach((a) => {
     const card = el("div", null, { class: "alt-card", role: "listitem" });
+
+    // Card Header with category icon & effort badge
+    const header = el("div", null, { class: "alt-card-header" });
+    const iconWrap = el("div", null, { class: "alt-icon-wrap" });
+    iconWrap.appendChild(el("span", a.icon || "🌱", { class: "alt-icon" }));
+    header.appendChild(iconWrap);
+
+    const effortLabel = a.effort || "Recommended";
+    const effortClass = (effortLabel === "Easy" || effortLabel === "Zero-Cost") ? "tag-free" : effortLabel === "Low-Cost" ? "tag-low" : "tag-medium";
+    header.appendChild(el("span", effortLabel, { class: `tag ${effortClass}` }));
+    card.appendChild(header);
+
+    // Title & description
     card.appendChild(el("h3", a.title, { class: "card-title" }));
     card.appendChild(el("p", a.description, { class: "card-desc" }));
+
+    // Key Impact Metrics Grid
+    const metricsGrid = el("div", null, { class: "alt-metrics-grid" });
+    if (a.exposure_change_pct < 0) {
+      const m1 = el("div", null, { class: "alt-metric" });
+      m1.appendChild(el("span", "Personal Dose Cut", { class: "alt-m-label" }));
+      m1.appendChild(el("span", `${a.exposure_change_pct}%`, { class: "alt-m-val text-success" }));
+      metricsGrid.appendChild(m1);
+    }
+    if (a.emission_change_gco2e_per_km < 0) {
+      const m2 = el("div", null, { class: "alt-metric" });
+      m2.appendChild(el("span", "Carbon Saved", { class: "alt-m-label" }));
+      m2.appendChild(el("span", `${a.emission_change_gco2e_per_km.toFixed(0)} g/km`, { class: "alt-m-val text-accent" }));
+      metricsGrid.appendChild(m2);
+    }
+    if (a.monthly_savings_inr) {
+      const m3 = el("div", null, { class: "alt-metric" });
+      m3.appendChild(el("span", "Est. Fuel Saved", { class: "alt-m-label" }));
+      m3.appendChild(el("span", `~₹${a.monthly_savings_inr}/mo`, { class: "alt-m-val text-warning" }));
+      metricsGrid.appendChild(m3);
+    }
+    card.appendChild(metricsGrid);
+
+    // Community note
     if (a.community_note) {
       const note = el("p", `🌍 ${a.community_note}`, { class: "card-desc card-community" });
       card.appendChild(note);
     }
-    const tags = el("div", null, { class: "card-tags" });
-    if (a.exposure_change_pct < 0) {
-      tags.appendChild(el("span", `Exposure ${a.exposure_change_pct}%`, { class: "tag tag-free" }));
+
+    // Action button: Test in What-If
+    if (a.sim_action_id) {
+      const btn = el("button", null, { class: "btn btn-outline btn-sm btn-simulate-alt", type: "button" });
+      btn.innerHTML = `<span>🧪 Test in What-If Simulator</span> <span aria-hidden="true">→</span>`;
+      btn.addEventListener("click", () => {
+        const tabBtn = $("#tab-btn-simulator");
+        if (tabBtn) tabBtn.click();
+        const cb = document.querySelector(`#sim-actions input[name="${a.sim_action_id}"]`);
+        if (cb) {
+          cb.checked = true;
+          runSimulation();
+        }
+        $("#tab-simulator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+      card.appendChild(btn);
     }
-    if (a.emission_change_gco2e_per_km < 0) {
-      tags.appendChild(el("span", `${a.emission_change_gco2e_per_km.toFixed(0)} gCO₂e/km`, { class: "tag tag-low" }));
-    }
-    tags.appendChild(el("span", `Effort: ${a.effort}`, { class: "tag tag-medium" }));
-    card.appendChild(tags);
+
     grid.appendChild(card);
   });
 }
@@ -393,23 +440,77 @@ function renderSimActions() {
   const container = $("#sim-actions");
   if (!container) return;
   container.textContent = "";
+
   SIM_ACTIONS.forEach((action, idx) => {
     const item = el("label", null, { class: "sim-action-item" });
-    const cb = el("input", null, { type: "checkbox" });
-    cb.name = action.id;
-    // Pre-check the induction cooking swap for instant interactive feedback
-    if (idx === 1) cb.checked = true;
-    cb.addEventListener("change", debounce(runSimulation, 250));
-    item.appendChild(cb);
-    const textWrap = el("div");
-    textWrap.appendChild(el("div", action.label, { class: "sim-action-label" }));
+
+    const leftWrap = el("div", null, { class: "sim-item-left" });
+    leftWrap.appendChild(el("span", action.icon || "⚡", { class: "sim-item-icon" }));
+
+    const textWrap = el("div", null, { class: "sim-item-text" });
+    const titleRow = el("div", null, { class: "sim-title-row" });
+    titleRow.appendChild(el("span", action.label, { class: "sim-action-label" }));
+    if (action.tag) {
+      titleRow.appendChild(el("span", action.tag, { class: "sim-action-tag" }));
+    }
+    textWrap.appendChild(titleRow);
     textWrap.appendChild(el("div", action.desc, { class: "sim-action-desc" }));
-    item.appendChild(textWrap);
+    leftWrap.appendChild(textWrap);
+    item.appendChild(leftWrap);
+
+    // Toggle switch
+    const toggleWrap = el("div", null, { class: "sim-switch-wrap" });
+    const cb = el("input", null, { type: "checkbox", class: "sim-switch-input" });
+    cb.name = action.id;
+    // Default check induction and metro for instant high-impact demo
+    if (idx === 1 || idx === 2) cb.checked = true;
+    cb.addEventListener("change", debounce(runSimulation, 200));
+    const slider = el("span", null, { class: "sim-switch-slider", "aria-hidden": "true" });
+    toggleWrap.appendChild(cb);
+    toggleWrap.appendChild(slider);
+    item.appendChild(toggleWrap);
+
     container.appendChild(item);
   });
 
-  // Automatically run initial simulation so results and chart render immediately
+  initPresets();
   runSimulation();
+}
+
+function initPresets() {
+  const chips = $$(".preset-chip");
+  chips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      chips.forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+      const preset = chip.getAttribute("data-preset");
+
+      const cbs = $$('#sim-actions input[type="checkbox"]');
+      cbs.forEach((cb) => { cb.checked = false; });
+
+      if (preset === "balanced") {
+        setCheck("switch_to_induction", true);
+        setCheck("switch_commute_to_metro", true);
+      } else if (preset === "zero_cost") {
+        setCheck("switch_commute_to_cycle", true);
+        setCheck("work_from_home_2_days", true);
+      } else if (preset === "max_protection") {
+        setCheck("add_air_purifier", true);
+        setCheck("switch_to_induction", true);
+        setCheck("switch_commute_to_metro", true);
+      } else if (preset === "eco_commute") {
+        setCheck("switch_commute_to_metro", true);
+        setCheck("switch_commute_to_cycle", true);
+        setCheck("work_from_home_2_days", true);
+      }
+      runSimulation();
+    });
+  });
+}
+
+function setCheck(name, val) {
+  const cb = document.querySelector(`#sim-actions input[name="${name}"]`);
+  if (cb) cb.checked = val;
 }
 
 async function runSimulation() {
@@ -442,6 +543,29 @@ async function runSimulation() {
     const equivKm = Number(data.equivalent_km_not_driven ?? 0);
 
     show($("#sim-results"));
+
+    // Comparison Hero Update
+    const compBeforeVal = $("#comp-before-val");
+    if (compBeforeVal) compBeforeVal.textContent = Math.round(beforeDose);
+    const compBeforeCigs = $("#comp-before-cigs");
+    if (compBeforeCigs) compBeforeCigs.textContent = `≈ ${(beforeDose / 22).toFixed(1)} cigs/day equiv`;
+
+    const compAfterVal = $("#comp-after-val");
+    if (compAfterVal) compAfterVal.textContent = Math.round(afterDose);
+    const compAfterCigs = $("#comp-after-cigs");
+    if (compAfterCigs) compAfterCigs.textContent = `≈ ${(afterDose / 22).toFixed(1)} cigs/day equiv`;
+
+    const reductionPct = beforeDose > 0 ? Math.max(0, Math.round(((beforeDose - afterDose) / beforeDose) * 100)) : 0;
+    const reductionVal = $("#sim-reduction-pct");
+    if (reductionVal) reductionVal.textContent = `${reductionPct}%`;
+
+    const compBarAfter = $("#comp-bar-after");
+    if (compBarAfter) {
+      const pctWidth = beforeDose > 0 ? Math.max(12, Math.min(100, Math.round((afterDose / beforeDose) * 100))) : 40;
+      compBarAfter.style.width = `${pctWidth}%`;
+    }
+
+    // 4 Metrics Grid Update
     $("#sim-before-dose").textContent = beforeDose.toFixed(1);
     $("#sim-after-dose").textContent = afterDose.toFixed(1);
     $("#sim-co2-saved").textContent = co2Saved.toFixed(1);
@@ -463,10 +587,60 @@ async function runSimulation() {
 }
 
 // ===== CHAT =====
-function appendChatBubble(role, text) {
+function formatMarkdown(text) {
+  if (!text) return "";
+  let html = text
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.*?)\*/g, "<em>$1</em>")
+    .replace(/^• (.*?)$/gm, "<li>$1</li>")
+    .replace(/^- (.*?)$/gm, "<li>$1</li>");
+
+  html = html.replace(/(<li>.*?<\/li>)/gs, "<ul class='chat-list'>$1</ul>");
+  html = html.replace(/\n\n/g, "<p></p>").replace(/\n/g, "<br>");
+  return html;
+}
+
+function initChat() {
+  const container = $("#chat-messages");
+  if (!container || container.children.length > 0) return;
+  appendAssistantMessage(
+    `**Namaste! I am your SaansSafe Intelligence Assistant.** 🌿\n\nI am grounded in live local air quality readings and your household profile. How can I help protect your family today?\n\n• **Kids & Elders:** Is it safe to go out right now?\n• **Mask Guidance:** N95 vs cloth vs surgical masks\n• **Ventilation:** Best hours to air out your home\n• **Air Purifiers:** Placement, DIY filters, and maintenance`
+  );
+}
+
+function appendUserMessage(text) {
   const container = $("#chat-messages");
   if (!container) return;
-  const bubble = el("div", text, { class: `chat-bubble ${role}` });
+  const bubble = el("div", null, { class: "chat-bubble user" });
+
+  const header = el("div", null, { class: "bubble-header" });
+  header.appendChild(el("span", "👤", { class: "bubble-avatar" }));
+  header.appendChild(el("span", "You", { class: "bubble-sender" }));
+  bubble.appendChild(header);
+
+  const content = el("div", text, { class: "bubble-content" });
+  bubble.appendChild(content);
+
+  container.appendChild(bubble);
+  container.scrollTop = container.scrollHeight;
+}
+
+function appendAssistantMessage(text) {
+  const container = $("#chat-messages");
+  if (!container) return;
+  const bubble = el("div", null, { class: "chat-bubble assistant" });
+
+  const header = el("div", null, { class: "bubble-header" });
+  header.appendChild(el("span", "🌱", { class: "bubble-avatar" }));
+  header.appendChild(el("span", "SaansSafe Assistant", { class: "bubble-sender" }));
+  header.appendChild(el("span", "Grounded AI", { class: "bubble-badge" }));
+  bubble.appendChild(header);
+
+  const content = el("div", null, { class: "bubble-content" });
+  content.innerHTML = formatMarkdown(text);
+  bubble.appendChild(content);
+
   container.appendChild(bubble);
   container.scrollTop = container.scrollHeight;
 }
@@ -477,12 +651,18 @@ async function sendChat() {
   const msg = input.value.trim();
   if (!msg) return;
 
-  appendChatBubble("user", msg);
+  appendUserMessage(msg);
   input.value = "";
   state.chatHistory.push({ role: "user", content: msg });
 
-  const typingBubble = el("div", "…", { class: "chat-bubble assistant" });
+  const typingBubble = el("div", null, { class: "chat-bubble assistant typing-bubble" });
+  typingBubble.innerHTML = `
+    <div class="typing-dots">
+      <span></span><span></span><span></span>
+    </div>
+  `;
   $("#chat-messages")?.appendChild(typingBubble);
+  $("#chat-messages").scrollTop = $("#chat-messages").scrollHeight;
 
   try {
     const res = await fetch(API.chat, {
@@ -499,15 +679,15 @@ async function sendChat() {
     typingBubble.remove();
 
     if (!res.ok) {
-      appendChatBubble("assistant error", "⚠️ Could not get a response. Please try again.");
+      appendAssistantMessage("⚠️ I could not process that request right now. Please try again.");
       return;
     }
     const data = await res.json();
-    appendChatBubble("assistant", data.reply);
+    appendAssistantMessage(data.reply);
     state.chatHistory.push({ role: "assistant", content: data.reply });
   } catch (e) {
     typingBubble.remove();
-    appendChatBubble("assistant error", "⚠️ Network error. Please check your connection.");
+    appendAssistantMessage("⚠️ Network communication error. Please check your connection.");
   }
 }
 
@@ -1057,6 +1237,13 @@ async function init() {
   $("#btn-read-aloud")?.addEventListener("click", readAloud);
 
   // Chat
+  initChat();
+  $("#btn-clear-chat")?.addEventListener("click", () => {
+    const container = $("#chat-messages");
+    if (container) container.textContent = "";
+    state.chatHistory = [];
+    initChat();
+  });
   $("#btn-chat-send")?.addEventListener("click", sendChat);
   $("#chat-input")?.addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
 

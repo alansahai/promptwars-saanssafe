@@ -532,42 +532,119 @@
 
         <!-- ALTERNATIVES TAB -->
         <div id="tab-alternatives" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-alternatives" hidden>
+          <div class="tab-header-banner">
+            <div class="tab-header-titles">
+              <h3 class="tab-heading">🌱 Sustainable Smog Swaps</h3>
+              <p class="tab-desc">High-impact daily transport, cooking, and lifestyle alternatives that protect your lungs and slash urban emissions.</p>
+            </div>
+            <div class="tab-badge-pill">
+              <span class="live-dot" aria-hidden="true"></span>
+              <span>Tailored to Your Household Profile</span>
+            </div>
+          </div>
           <div id="alternatives-grid" class="cards-grid" role="list" aria-label="Sustainable alternatives"></div>
         </div>
 
         <!-- WHAT-IF SIMULATOR TAB -->
         <div id="tab-simulator" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-simulator" hidden>
-          <h3 class="tab-heading" data-i18n="simulator_title">What-If Impact Simulator</h3>
-          <p class="tab-desc" data-i18n="simulator_desc">
-            Toggle actions below to see your before-vs-after air exposure and emissions impact.
-          </p>
+          <div class="tab-header-banner">
+            <div class="tab-header-titles">
+              <h3 class="tab-heading" data-i18n="simulator_title">What-If Impact Simulator</h3>
+              <p class="tab-desc" data-i18n="simulator_desc">
+                Toggle actions below to see your before-vs-after air exposure and emissions impact.
+              </p>
+            </div>
+            <!-- Quick Presets -->
+            <div class="sim-presets" role="group" aria-label="Simulation Presets">
+              <span class="presets-label">⚡ Presets:</span>
+              <button type="button" class="preset-chip active" data-preset="balanced">⚖️ Balanced</button>
+              <button type="button" class="preset-chip" data-preset="zero_cost">🪙 Zero-Cost</button>
+              <button type="button" class="preset-chip" data-preset="max_protection">🛡️ Max Shield</button>
+              <button type="button" class="preset-chip" data-preset="eco_commute">🚇 Eco Transit</button>
+            </div>
+          </div>
+
+          <!-- Interactive Actions Grid -->
           <div id="sim-actions" class="sim-actions" role="group" aria-label="Simulation actions"></div>
-          <div id="sim-results" class="sim-results" hidden>
+
+          <!-- Simulator Results -->
+          <div id="sim-results" class="sim-results">
+            <!-- Visual Hero Comparison Card -->
+            <div class="sim-comparison-hero card">
+              <div class="comp-col comp-before">
+                <span class="comp-tag tag-danger">Current Daily Exposure</span>
+                <div class="comp-val-wrap">
+                  <span class="comp-val" id="comp-before-val">—</span>
+                  <span class="comp-unit">µg/day</span>
+                </div>
+                <div class="comp-sub" id="comp-before-cigs">≈ — cigs/day</div>
+                <div class="comp-bar-track">
+                  <div class="comp-bar-fill fill-before" id="comp-bar-before" style="width: 100%"></div>
+                </div>
+              </div>
+
+              <div class="comp-badge-wrap">
+                <div class="reduction-badge" id="sim-reduction-badge">
+                  <span class="reduction-icon">⬇</span>
+                  <span class="reduction-val" id="sim-reduction-pct">—%</span>
+                  <span class="reduction-label">PM2.5 Cut</span>
+                </div>
+              </div>
+
+              <div class="comp-col comp-after">
+                <span class="comp-tag tag-success">Simulated Protected Dose</span>
+                <div class="comp-val-wrap">
+                  <span class="comp-val text-success" id="comp-after-val">—</span>
+                  <span class="comp-unit">µg/day</span>
+                </div>
+                <div class="comp-sub" id="comp-after-cigs">≈ — cigs/day</div>
+                <div class="comp-bar-track">
+                  <div class="comp-bar-fill fill-after" id="comp-bar-after" style="width: 45%"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Canvas Chart Wrap -->
             <div class="sim-chart-wrap">
               <canvas id="sim-chart" width="600" height="200" aria-label="Before vs after bar chart" role="img"></canvas>
             </div>
+
+            <!-- 4 Metrics Grid -->
             <div class="sim-metrics">
               <div class="metric-card">
-                <div class="metric-label" data-i18n="pm25_before">PM2.5 Dose (Before)</div>
+                <div class="metric-header">
+                  <span class="metric-icon">🌫️</span>
+                  <div class="metric-label" data-i18n="pm25_before">PM2.5 Dose (Before)</div>
+                </div>
                 <div class="metric-value" id="sim-before-dose">—</div>
-                <div class="metric-unit">µg/day</div>
+                <div class="metric-unit">µg/day inhaled</div>
               </div>
               <div class="metric-card highlight">
-                <div class="metric-label" data-i18n="pm25_after">PM2.5 Dose (After)</div>
+                <div class="metric-header">
+                  <span class="metric-icon">🛡️</span>
+                  <div class="metric-label" data-i18n="pm25_after">PM2.5 Dose (After)</div>
+                </div>
                 <div class="metric-value" id="sim-after-dose">—</div>
-                <div class="metric-unit">µg/day</div>
+                <div class="metric-unit">µg/day inhaled</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label" data-i18n="co2_saved">CO₂e Saved/Year</div>
-                <div class="metric-value" id="sim-co2-saved">—</div>
-                <div class="metric-unit">kg</div>
+                <div class="metric-header">
+                  <span class="metric-icon">🌍</span>
+                  <div class="metric-label" data-i18n="co2_saved">CO₂e Saved/Year</div>
+                </div>
+                <div class="metric-value text-accent" id="sim-co2-saved">—</div>
+                <div class="metric-unit">kg carbon emissions</div>
               </div>
               <div class="metric-card">
-                <div class="metric-label" data-i18n="equiv_km">Equivalent km not driven</div>
+                <div class="metric-header">
+                  <span class="metric-icon">🚗</span>
+                  <div class="metric-label" data-i18n="equiv_km">Equivalent km not driven</div>
+                </div>
                 <div class="metric-value" id="sim-equiv-km">—</div>
-                <div class="metric-unit">km/year</div>
+                <div class="metric-unit">km driving prevented</div>
               </div>
             </div>
+
             <!-- How we calculated this -->
             <details class="accordion">
               <summary class="accordion-summary" data-i18n="how_calculated">How we calculated this ▼</summary>
@@ -579,34 +656,59 @@
 
         <!-- CHAT TAB -->
         <div id="tab-chat" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-chat" hidden>
-          <h3 class="tab-heading" data-i18n="chat_title">Ask SaansSafe</h3>
-          <p class="tab-desc" data-i18n="chat_desc">Ask follow-up questions about air quality, your routine, or precautions.</p>
-          <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-label="Chat conversation"></div>
-          
-          <!-- Suggested Prompt Chips -->
-          <div class="chat-suggestions" aria-label="Suggested questions">
-            <button type="button" class="chat-chip">🏃 Can I exercise outdoors today?</button>
-            <button type="button" class="chat-chip">😷 Which mask protects best?</button>
-            <button type="button" class="chat-chip">🪟 When should I ventilate?</button>
-          </div>
+          <div class="chat-container card">
+            <div class="chat-header">
+              <div class="chat-header-info">
+                <span class="chat-bot-avatar" aria-hidden="true">🌱</span>
+                <div>
+                  <h3 class="chat-bot-name">SaansSafe Intelligence Assistant</h3>
+                  <div class="chat-bot-status">
+                    <span class="status-dot-pulse" aria-hidden="true"></span>
+                    <span>Live Air Grounded · Powered by Gemini 2.5 Flash</span>
+                  </div>
+                </div>
+              </div>
+              <button id="btn-clear-chat" type="button" class="btn btn-sm btn-outline chat-clear-btn" title="Clear chat history">
+                <span>🗑️ Clear</span>
+              </button>
+            </div>
 
-          <div class="chat-input-wrap">
-            <label for="chat-input" class="sr-only" data-i18n="chat_input_label">Your question</label>
-            <input id="chat-input" type="text" class="form-input chat-input" maxlength="500"
-              placeholder="e.g. Is it safe to take my daughter to the park at 6 pm?"
-              data-i18n-placeholder="chat_placeholder"
-              aria-describedby="hint-chat" />
-            <button id="btn-chat-send" class="btn btn-primary" type="button">
-              <span aria-hidden="true">➤</span>
-              <span class="sr-only" data-i18n="send">Send</span>
-            </button>
+            <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-label="Chat conversation"></div>
+
+            <!-- Suggested Prompt Chips -->
+            <div class="chat-suggestions-wrap">
+              <span class="suggestions-label">💡 Suggested Questions:</span>
+              <div class="chat-suggestions" aria-label="Suggested questions">
+                <button type="button" class="chat-chip">🏃 Can I jog outside today?</button>
+                <button type="button" class="chat-chip">👶 Is it safe for kids to play in the park?</button>
+                <button type="button" class="chat-chip">😷 Which mask protects best: N95 or cloth?</button>
+                <button type="button" class="chat-chip">🪟 When should I open windows for ventilation?</button>
+                <button type="button" class="chat-chip">🍃 Do indoor plants clean PM2.5 smog?</button>
+                <button type="button" class="chat-chip">🚗 How to set car AC during heavy traffic?</button>
+              </div>
+            </div>
+
+            <div class="chat-input-bar">
+              <div class="chat-input-wrap">
+                <span class="chat-input-icon" aria-hidden="true">💬</span>
+                <label for="chat-input" class="sr-only" data-i18n="chat_input_label">Your question</label>
+                <input id="chat-input" type="text" class="form-input chat-input" maxlength="500"
+                  placeholder="Ask anything about smog, kids' play hours, N95 masks, or purifiers…"
+                  data-i18n-placeholder="chat_placeholder"
+                  aria-describedby="hint-chat" />
+                <button id="btn-chat-send" class="btn btn-primary btn-chat-send" type="button">
+                  <span>Send</span>
+                  <span aria-hidden="true">➤</span>
+                </button>
+              </div>
+              <span id="hint-chat" class="field-hint chat-hint" data-i18n="hint_chat">
+                Ask any question about today's smog levels, safe outdoor exercise windows, mask ratings (N95 vs cloth), or DIY air purifier builds.
+              </span>
+              <p class="chat-disclaimer" data-i18n="chat_disclaimer">
+                ⚕️ Not medical advice. For emergencies, call 112.
+              </p>
+            </div>
           </div>
-          <span id="hint-chat" class="field-hint chat-hint" data-i18n="hint_chat">
-            Ask any question about today's smog levels, safe outdoor exercise windows, mask ratings (N95 vs cloth), or DIY air purifier builds.
-          </span>
-          <p class="chat-disclaimer" data-i18n="chat_disclaimer">
-            ⚕️ Not medical advice. For emergencies, call 112.
-          </p>
         </div>
       </div>
 
