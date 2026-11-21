@@ -349,14 +349,34 @@
     <section id="results-section" class="section" hidden aria-labelledby="results-heading" aria-live="polite">
       <h2 id="results-heading" class="sr-only" data-i18n="results_heading">Assessment Results</h2>
 
-      <!-- Loading skeleton -->
+      <!-- Loading skeleton with Progressive Stage Tracker -->
       <div id="loading-skeleton" class="loading-container" hidden aria-label="Loading assessment" role="status">
+        <div class="loading-header">
+          <div class="loading-spinner"></div>
+          <h3 class="loading-title">Synthesizing Household Air Plan</h3>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="assess-progress-fill" style="width: 15%"></div>
+        </div>
+        <div class="loading-stages" id="loading-stages">
+          <div class="stage-step active" id="stage-1">
+            <span class="stage-icon">🛰️</span>
+            <span class="stage-text">Querying Open-Meteo atmospheric &amp; wind telemetry…</span>
+          </div>
+          <div class="stage-step" id="stage-2">
+            <span class="stage-icon">🔬</span>
+            <span class="stage-text">Calculating household aerosol deposition &amp; inversion factors…</span>
+          </div>
+          <div class="stage-step" id="stage-3">
+            <span class="stage-icon">🌱</span>
+            <span class="stage-text">Synthesizing grounded family shielding guidance with Gemini 2.5 Flash…</span>
+          </div>
+        </div>
         <div class="skeleton-pulse">
           <div class="sk-gauge"></div>
           <div class="sk-text"></div>
           <div class="sk-text sk-short"></div>
         </div>
-        <p class="loading-text" data-i18n="loading_text">Analysing air quality for your household…</p>
       </div>
 
       <!-- Error state -->
@@ -542,6 +562,13 @@
               <span>Tailored to Your Household Profile</span>
             </div>
           </div>
+          <!-- Category Filter Bar -->
+          <div class="alt-filter-bar" role="group" aria-label="Filter alternatives">
+            <button type="button" class="alt-filter-chip active" data-filter="all">✨ All Swaps (6)</button>
+            <button type="button" class="alt-filter-chip" data-filter="transit">🚇 Clean Commute (3)</button>
+            <button type="button" class="alt-filter-chip" data-filter="home">🏠 Home &amp; Filtration (2)</button>
+            <button type="button" class="alt-filter-chip" data-filter="cooking">🍳 Clean Cooking (1)</button>
+          </div>
           <div id="alternatives-grid" class="cards-grid" role="list" aria-label="Sustainable alternatives"></div>
         </div>
 
@@ -561,6 +588,7 @@
               <button type="button" class="preset-chip" data-preset="zero_cost">🪙 Zero-Cost</button>
               <button type="button" class="preset-chip" data-preset="max_protection">🛡️ Max Shield</button>
               <button type="button" class="preset-chip" data-preset="eco_commute">🚇 Eco Transit</button>
+              <button type="button" class="preset-chip preset-reset" data-preset="reset">🔄 Reset All</button>
             </div>
           </div>
 
@@ -712,11 +740,23 @@
         </div>
       </div>
 
-      <!-- Print button -->
-      <div class="print-actions" id="print-actions" hidden>
-        <button id="btn-print-plan" class="btn btn-outline no-print" type="button" data-i18n="print_plan">
-          🖨️ Print Family Air Plan
-        </button>
+      <!-- Print & Share Actions Bar -->
+      <div class="plan-actions-bar card" id="print-actions" hidden>
+        <div class="plan-actions-info">
+          <span class="plan-actions-icon" aria-hidden="true">📋</span>
+          <div>
+            <h4 class="plan-actions-title">Save or Share Your Family Air Plan</h4>
+            <p class="plan-actions-sub">Keep this protocol handy on your fridge or phone during winter smog peaks.</p>
+          </div>
+        </div>
+        <div class="plan-actions-buttons">
+          <button id="btn-copy-summary" class="btn btn-outline btn-sm no-print" type="button" title="Copy full plan summary to clipboard">
+            <span>📋 Copy Protocol</span>
+          </button>
+          <button id="btn-print-plan" class="btn btn-primary btn-sm no-print" type="button" data-i18n="print_plan">
+            <span>🖨️ Print / Save PDF</span>
+          </button>
+        </div>
       </div>
     </section>
   </main>

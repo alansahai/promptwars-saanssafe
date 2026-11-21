@@ -325,13 +325,16 @@ function renderHacks(hacks) {
 }
 
 // ===== ALTERNATIVES =====
+let _allAlternatives = [];
+
 function renderAlternatives(alts) {
+  _allAlternatives = alts || [];
   const grid = $("#alternatives-grid");
   if (!grid) return;
   grid.textContent = "";
 
-  alts.forEach((a) => {
-    const card = el("div", null, { class: "alt-card", role: "listitem" });
+  _allAlternatives.forEach((a) => {
+    const card = el("div", null, { class: "alt-card", role: "listitem", "data-category": a.category || "transit" });
 
     // Card Header with category icon & effort badge
     const header = el("div", null, { class: "alt-card-header" });
@@ -386,7 +389,7 @@ function renderAlternatives(alts) {
         const cb = document.querySelector(`#sim-actions input[name="${a.sim_action_id}"]`);
         if (cb) {
           cb.checked = true;
-          runSimulation();
+          cb.dispatchEvent(new Event("change"));
         }
         $("#tab-simulator")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
@@ -394,6 +397,28 @@ function renderAlternatives(alts) {
     }
 
     grid.appendChild(card);
+  });
+
+  initAltFilters();
+}
+
+function initAltFilters() {
+  const chips = $$(".alt-filter-chip");
+  chips.forEach((chip) => {
+    chip.addEventListener("click", () => {
+      chips.forEach((c) => c.classList.remove("active"));
+      chip.classList.add("active");
+      const filter = chip.getAttribute("data-filter");
+      const cards = $$(".alt-card");
+      cards.forEach((card) => {
+        const cat = card.getAttribute("data-category");
+        if (filter === "all" || cat === filter) {
+          card.style.display = "flex";
+        } else {
+          card.style.display = "none";
+        }
+      });
+    });
   });
 }
 
@@ -463,8 +488,21 @@ function renderSimActions() {
     const cb = el("input", null, { type: "checkbox", class: "sim-switch-input" });
     cb.name = action.id;
     // Default check induction and metro for instant high-impact demo
-    if (idx === 1 || idx === 2) cb.checked = true;
-    cb.addEventListener("change", debounce(runSimulation, 200));
+    if (idx === 1 || idx === 2) {
+      cb.checked = true;
+      item.classList.add("active");
+    }
+
+    const updateItemActive = () => {
+      if (cb.checked) item.classList.add("active");
+      else item.classList.remove("active");
+    };
+
+    cb.addEventListener("change", () => {
+      updateItemActive();
+      runSimulation();
+    });
+
     const slider = el("span", null, { class: "sim-switch-slider", "aria-hidden": "true" });
     toggleWrap.appendChild(cb);
     toggleWrap.appendChild(slider);
@@ -502,7 +540,17 @@ function initPresets() {
         setCheck("switch_commute_to_metro", true);
         setCheck("switch_commute_to_cycle", true);
         setCheck("work_from_home_2_days", true);
+      } else if (preset === "reset") {
+        // all unchecked
       }
+
+      // Update .active class on all items
+      $$(".sim-action-item").forEach((item) => {
+        const input = item.querySelector('input[type="checkbox"]');
+        if (input && input.checked) item.classList.add("active");
+        else item.classList.remove("active");
+      });
+
       runSimulation();
     });
   });
@@ -772,6 +820,26 @@ async function runAssessment() {
   hide($("#ai-badge"));
   hide($("#print-actions"));
 
+  // Reset & start progressive stage tracker
+  const fill = $("#assess-progress-fill");
+  const s1 = $("#stage-1"), s2 = $("#stage-2"), s3 = $("#stage-3");
+  if (fill) fill.style.width = "20%";
+  if (s1) s1.className = "stage-step active";
+  if (s2) s2.className = "stage-step";
+  if (s3) s3.className = "stage-step";
+
+  const tStage1 = setTimeout(() => {
+    if (fill) fill.style.width = "55%";
+    if (s1) s1.className = "stage-step done";
+    if (s2) s2.className = "stage-step active";
+  }, 650);
+
+  const tStage2 = setTimeout(() => {
+    if (fill) fill.style.width = "88%";
+    if (s2) s2.className = "stage-step done";
+    if (s3) s3.className = "stage-step active";
+  }, 1450);
+
   resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
 
   try {
@@ -781,6 +849,14 @@ async function runAssessment() {
       body: JSON.stringify({ location: state.location, profile }),
     });
 
+    clearTimeout(tStage1);
+    clearTimeout(tStage2);
+    if (fill) fill.style.width = "100%";
+    if (s1) s1.className = "stage-step done";
+    if (s2) s2.className = "stage-step done";
+    if (s3) s3.className = "stage-step done";
+
+    await new Promise((r) => setTimeout(r, 200));
     hide($("#loading-skeleton"));
 
     if (!res.ok) {
@@ -793,6 +869,8 @@ async function runAssessment() {
     state.assessment = data;
     renderAssessment(data);
   } catch (e) {
+    clearTimeout(tStage1);
+    clearTimeout(tStage2);
     hide($("#loading-skeleton"));
     if (e.name === "TypeError") {
       showError("Network error — please check your connection.");
@@ -1260,6 +1338,36 @@ async function init() {
 
   // Print plan
   $("#btn-print-plan")?.addEventListener("click", () => window.print());
+
+  // Copy Protocol Summary
+  $("#btn-copy-summary")?.addEventListener("click", () => {
+    if (!state.assessment) return;
+    const a = state.assessment;
+    const city = state.location?.city_name || "Delhi";
+    const text = `📋 SaansSafe Family Smog Protocol — ${city}
+Date: ${new Date().toLocaleDateString(getLang())}
+Current AQI: ${Math.round(a.current_aqi)} (${a.risk_level} Risk)
+PM2.5: ${Math.round(a.current_pm25)} µg/m³
+
+Headline: ${a.headline}
+Summary: ${a.summary}
+
+Top Family Actions:
+${(a.family_tips || []).map((t, i) => `${i + 1}. ${t}`).join("\n")}
+
+Protect Your Lungs with SaansSafe: https://promptwars-saanssafe.vercel.app/`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = $("#btn-copy-summary");
+      if (btn) {
+        const orig = btn.innerHTML;
+        btn.innerHTML = "<span>✅ Protocol Copied!</span>";
+        setTimeout(() => { btn.innerHTML = orig; }, 2200);
+      }
+    }).catch(() => {
+      alert("Protocol copied to clipboard!");
+    });
+  });
 
   // Check Gemini availability
   try {

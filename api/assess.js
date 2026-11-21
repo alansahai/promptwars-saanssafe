@@ -9,6 +9,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ detail: "Method not allowed" });
   }
   res.setHeader("Content-Type", "application/json");
+  res.setHeader("Cache-Control", "public, s-maxage=120, stale-while-revalidate=300");
 
   const body = req.body || {};
   const location = body.location || { name: "Delhi", lat: 28.6519, lon: 77.2315 };
@@ -401,24 +402,24 @@ Use ONLY the following factual context:
 Return a strict JSON object with these keys:
 {
   "headline": "concise headline mentioning location and smog advice",
-  "summary": "2-3 sentences explaining air conditions and what they mean for this family",
+  "summary": "2 sentences explaining air conditions and immediate household health priority",
   "family_tips": ["tip 1", "tip 2", "tip 3"],
-  "kid_and_elder_notes": ["note 1", "note 2"],
+  "kid_and_elder_notes": ["vital protective note for kids/elders"],
   "motivational_nudge": "inspiring, positive closing thought"
 }`;
 
-        // Set maxOutputTokens to 600, thinkingBudget to 0, and a 3.5s timeout for blazingly fast response
+        // Set maxOutputTokens to 350, thinkingBudget to 0, and a 2.5s timeout for blazingly fast response
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(3500),
+            signal: AbortSignal.timeout(2500),
             body: JSON.stringify({
               contents: [{ parts: [{ text: prompt }] }],
               generationConfig: {
-                temperature: 0.2,
-                maxOutputTokens: 600,
+                temperature: 0.1,
+                maxOutputTokens: 350,
                 responseMimeType: "application/json",
                 thinkingConfig: {
                   thinkingBudget: 0,
