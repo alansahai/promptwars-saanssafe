@@ -297,6 +297,22 @@ function renderHacks(hacks) {
   grid.textContent = "";
   hacks.forEach((h) => {
     const card = el("div", null, { class: "measure-card", role: "listitem" });
+
+    // Card Header with category icon & cost badge
+    const header = el("div", null, { class: "alt-card-header" });
+    const iconWrap = el("div", null, { class: "alt-icon-wrap" });
+    const tipIcon = (h.cost_tier === "zero" || h.cost_tier === "free") ? "💡" : h.cost_tier === "low" ? "🧹" : "🏠";
+    iconWrap.appendChild(el("span", tipIcon, { class: "alt-icon" }));
+    header.appendChild(iconWrap);
+
+    const badgeWrap = el("div", null, { class: "alt-badges-wrap" });
+    const costClass = (h.cost_tier === "zero" || h.cost_tier === "free") ? "tag-free" : h.cost_tier === "low" ? "tag-low" : "tag-medium";
+    const costLabel = (h.cost_tier === "zero" || h.cost_tier === "free") ? "Zero-Cost" : h.cost_tier === "low" ? "Low-Cost" : "High-Impact";
+    badgeWrap.appendChild(el("span", costLabel, { class: `tag ${costClass}` }));
+    if (h.effort) badgeWrap.appendChild(el("span", h.effort, { class: "tag" }));
+    header.appendChild(badgeWrap);
+    card.appendChild(header);
+
     card.appendChild(el("h3", h.title, { class: "card-title" }));
     card.appendChild(el("p", h.description, { class: "card-desc" }));
 
@@ -310,11 +326,6 @@ function renderHacks(hacks) {
       barWrap.appendChild(bar);
       card.appendChild(barWrap);
     }
-
-    const tags = el("div", null, { class: "card-tags" });
-    tags.appendChild(el("span", h.cost_tier, { class: `tag tag-${h.cost_tier}` }));
-    tags.appendChild(el("span", h.effort, { class: "tag" }));
-    card.appendChild(tags);
 
     if (h.myth_bust) {
       card.appendChild(el("p", h.myth_bust, { class: "myth-bust" }));
@@ -334,17 +345,22 @@ function renderAlternatives(alts) {
   grid.textContent = "";
 
   _allAlternatives.forEach((a) => {
-    const card = el("div", null, { class: "alt-card", role: "listitem", "data-category": a.category || "transit" });
+    const card = el("div", null, { class: `alt-card alt-cat-${a.category || "transit"}`, role: "listitem", "data-category": a.category || "transit" });
 
-    // Card Header with category icon & effort badge
+    // Card Header with category icon, category pill & effort badge
     const header = el("div", null, { class: "alt-card-header" });
     const iconWrap = el("div", null, { class: "alt-icon-wrap" });
     iconWrap.appendChild(el("span", a.icon || "🌱", { class: "alt-icon" }));
     header.appendChild(iconWrap);
 
+    const badgeWrap = el("div", null, { class: "alt-badges-wrap" });
+    const categoryName = a.category === "transit" ? "Transit Swap" : a.category === "cooking" ? "Clean Cooking" : "Home & Work";
+    badgeWrap.appendChild(el("span", categoryName, { class: "tag tag-category" }));
+
     const effortLabel = a.effort || "Recommended";
     const effortClass = (effortLabel === "Easy" || effortLabel === "Zero-Cost") ? "tag-free" : effortLabel === "Low-Cost" ? "tag-low" : "tag-medium";
-    header.appendChild(el("span", effortLabel, { class: `tag ${effortClass}` }));
+    badgeWrap.appendChild(el("span", effortLabel, { class: `tag ${effortClass}` }));
+    header.appendChild(badgeWrap);
     card.appendChild(header);
 
     // Title & description
@@ -356,7 +372,7 @@ function renderAlternatives(alts) {
     if (a.exposure_change_pct < 0) {
       const m1 = el("div", null, { class: "alt-metric" });
       m1.appendChild(el("span", "Personal Dose Cut", { class: "alt-m-label" }));
-      m1.appendChild(el("span", `${a.exposure_change_pct}%`, { class: "alt-m-val text-success" }));
+      m1.appendChild(el("span", `⬇ ${Math.abs(a.exposure_change_pct)}%`, { class: "alt-m-val text-success" }));
       metricsGrid.appendChild(m1);
     }
     if (a.emission_change_gco2e_per_km < 0) {
