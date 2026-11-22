@@ -252,6 +252,7 @@ def get_measures_for_profile(
 
     Returns:
         Ranked list of applicable Measure dicts.
+
     """
     cost_weights = {"free": 1.0, "low": 2.0, "medium": 3.0, "high": 4.0}
     filtered: list[Measure] = []

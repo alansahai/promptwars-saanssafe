@@ -3,6 +3,9 @@
 > **Your Family's Urban Smog Navigation Assistant** — Personalised air quality intelligence, low-exposure daily routines, verified indoor air quality hacks, sustainable commute alternatives, and grounded GenAI consultation tailored for urban families navigating severe winter smog.
 
 [![CI](https://github.com/alansahai/promptwars-saanssafe/actions/workflows/ci.yml/badge.svg)](https://github.com/alansahai/promptwars-saanssafe/actions/workflows/ci.yml)
+[![Tests: 166 passing](https://img.shields.io/badge/tests-166_passing-success.svg)](https://github.com/alansahai/promptwars-saanssafe/actions)
+[![Coverage: 92%](https://img.shields.io/badge/coverage-92%25-brightgreen.svg)](https://github.com/alansahai/promptwars-saanssafe)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)

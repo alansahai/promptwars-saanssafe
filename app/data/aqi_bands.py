@@ -161,6 +161,7 @@ def get_aqi_band(aqi: float, standard: str = "us") -> AQIBand:
 
     Returns:
         The matching AQIBand dict.
+
     """
     bands = INDIA_NAQI_BANDS if standard == "india" else US_AQI_BANDS
     aqi = max(0.0, aqi)
@@ -179,6 +180,7 @@ def aqi_to_level(aqi: float, standard: str = "us") -> str:
 
     Returns:
         One of: 'Low', 'Moderate', 'High', 'Severe', 'Emergency'.
+
     """
     return get_aqi_band(aqi, standard)["level_name"]
 
@@ -194,6 +196,7 @@ def pm25_to_naqi(pm25: float) -> float:
 
     Returns:
         Approximate NAQI value (0–500+).
+
     """
     # (pm25_low, pm25_high, naqi_low, naqi_high)
     breakpoints = [

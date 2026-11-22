@@ -7,7 +7,6 @@ No secrets are hardcoded. Use .env.example as a template.
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -25,7 +24,15 @@ class Settings(BaseSettings):
 
     @field_validator("allowed_origins")
     @classmethod
-    def normalize_allowed_origins(cls, v: Any) -> list[str]:
+    def normalize_allowed_origins(cls, v: str | list[str]) -> list[str]:
+        """Normalize comma-separated strings or JSON arrays into a list of origins.
+
+        Args:
+            v: Raw origin string or list of origin strings.
+
+        Returns:
+            Normalized list of allowed origin strings.
+        """
         if isinstance(v, str):
             v_str = v.strip()
             if v_str.startswith("[") and v_str.endswith("]"):

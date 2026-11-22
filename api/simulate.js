@@ -1,3 +1,15 @@
+/**
+ * SaansSafe — Serverless What-If Impact Simulator Endpoint
+ * Computes before vs. after inhaled PM2.5 dose (µg/day) and avoided CO2e emissions (kg/year).
+ * @module api/simulate
+ */
+
+/**
+ * Handle simulation computation request.
+ *
+ * @param {import("http").IncomingMessage & { body?: any }} req - Inbound HTTP request
+ * @param {import("http").ServerResponse & { status: Function, json: Function, setHeader: Function }} res - Outbound HTTP response
+ */
 export default function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ detail: "Method not allowed" });

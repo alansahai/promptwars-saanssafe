@@ -1,10 +1,23 @@
 /**
- * SaansSafe — app.js
- * Main application logic (ES modules; CSP-compliant; no inline scripts).
- * Uses textContent / DOM builders — NEVER innerHTML for user/AI text (XSS-safe).
+ * SaansSafe — app.js (Orchestrator Module)
+ * Core application controller tying together UI modules, state, and API services.
+ * Fully modular ES architecture, CSP-compliant, zero inline scripts.
  */
 
 import { applyTranslations, getLang, setLang, t } from "./i18n.js";
+import { $, $$, el, show, hide, animateValue, debounce } from "./js/dom.js";
+import { animateGauge, drawGauge, initAmbientCanvas } from "./js/charts.js";
+import {
+  renderHeatStrip,
+  renderTimeline,
+  renderHacks,
+  renderAlternatives,
+  renderRiskBadge,
+  renderReasons,
+  renderTips,
+} from "./js/components.js";
+import { renderSimActions, runSimulation } from "./js/simulator.js";
+import { initChat, sendChat } from "./js/chat.js";
 
 // ===== CONSTANTS =====
 const API = {
@@ -38,724 +51,27 @@ const DELHI_DEMO = {
   },
 };
 
-const SIM_ACTIONS = [
-  { id: "add_air_purifier", icon: "🏠", label: "Add HEPA Air Purifier", tag: "Indoor Shield", desc: "Run true HEPA filtration in bedrooms & living areas (-50% infiltration)" },
-  { id: "switch_to_induction", icon: "🍳", label: "Switch to Induction Cooking", tag: "Clean Kitchen", desc: "Replace LPG / biomass with soot-free electric cooktop" },
-  { id: "switch_commute_to_metro", icon: "🚇", label: "Switch Commute to Metro", tag: "Rapid Transit", desc: "Trade road congestion for filtered AC carriages (-40% transit smog)" },
-  { id: "switch_commute_to_bus", icon: "🚌", label: "Switch Commute to Electric Bus", tag: "Shared Transit", desc: "Reduce personal tailpipe inhalation and local road vehicle count" },
-  { id: "switch_commute_to_cycle", icon: "🚲", label: "Cycle / Walk for Trips <3 km", tag: "Zero Tailpipe", desc: "Avoid cold-start petrol engine emissions for quick neighbourhood errands" },
-  { id: "work_from_home_2_days", icon: "💻", label: "Work From Home 2 Days/Week", tag: "Avoid Peak Smog", desc: "Completely eliminate travel exposure on 2 heaviest smog weekdays" },
-];
-
 // ===== STATE =====
-let state = {
-  location: null,       // {lat, lon, city_name}
+const state = {
+  location: null,       // {lat: number, lon: number, city_name: string}
   profile: null,        // HouseholdProfile
   assessment: null,     // AssessmentResponse
-  chatHistory: [],      // [{role, content}]
+  chatHistory: [],      // Array<{role: string, content: string}>
   geminiAvailable: false,
 };
 
-// ===== DOM REFS =====
-const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => document.querySelectorAll(sel);
-
-// ===== DEBOUNCE =====
-function debounce(fn, ms) {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => fn(...args), ms);
-  };
-}
-
-// ===== SAFE DOM BUILDER =====
 /**
- * Create an element with text content (XSS-safe; never uses innerHTML).
- * @param {string} tag
- * @param {string} [text]
- * @param {Object} [attrs]
- * @returns {HTMLElement}
+ * Accessor for child modules to read application state.
+ * @returns {{location: any, profile: any, assessment: any, chatHistory: any[], lang: string}}
  */
-function el(tag, text, attrs = {}) {
-  const e = document.createElement(tag);
-  if (text !== undefined && text !== null) e.textContent = text;
-  for (const [k, v] of Object.entries(attrs)) {
-    if (k === "class") e.className = v;
-    else if (k.startsWith("aria-") || k === "role" || k === "tabindex") e.setAttribute(k, v);
-    else e[k] = v;
-  }
-  return e;
-}
-
-// ===== SHOW/HIDE HELPERS =====
-function show(el) { if (el) el.hidden = false; }
-function hide(el) { if (el) el.hidden = true; }
-
-// ===== AQI GAUGE (canvas) =====
-let currentGaugeVal = 0;
-let gaugeAnimFrame = null;
-
-function animateGauge(targetAqi, duration = 850) {
-  if (gaugeAnimFrame) cancelAnimationFrame(gaugeAnimFrame);
-  const startVal = currentGaugeVal;
-  const startTime = performance.now();
-
-  function step(now) {
-    const elapsed = now - startTime;
-    const progress = Math.min(elapsed / duration, 1);
-    const ease = 1 - Math.pow(1 - progress, 3);
-    const val = startVal + (targetAqi - startVal) * ease;
-    drawGauge(val);
-    if (progress < 1) {
-      gaugeAnimFrame = requestAnimationFrame(step);
-    } else {
-      currentGaugeVal = targetAqi;
-      drawGauge(targetAqi);
-    }
-  }
-  gaugeAnimFrame = requestAnimationFrame(step);
-}
-
-function drawGauge(aqi) {
-  const canvas = $("#aqi-gauge");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const w = canvas.width, h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
-
-  const isDark = document.documentElement.dataset.theme === "dark" || 
-                 window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const needleColor = isDark ? "#ffffff" : "#0f172a";
-
-  const cx = w / 2, cy = h - 10;
-  const r = Math.min(cx, cy) - 10;
-
-  // Background track arc
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, Math.PI, 2 * Math.PI);
-  ctx.lineWidth = 16;
-  ctx.strokeStyle = isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.06)";
-  ctx.stroke();
-
-  // AQI colour bands (angle: π to 2π)
-  const bands = [
-    { max: 50, color: "#10b981" },
-    { max: 100, color: "#84cc16" },
-    { max: 150, color: "#f59e0b" },
-    { max: 200, color: "#f97316" },
-    { max: 300, color: "#ef4444" },
-    { max: 500, color: "#7f1d1d" },
-  ];
-  let prevAngle = Math.PI;
-  for (const band of bands) {
-    const frac = Math.min(band.max, 500) / 500;
-    const endAngle = Math.PI + frac * Math.PI;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, prevAngle, endAngle);
-    ctx.lineWidth = 16;
-    ctx.strokeStyle = band.color;
-    ctx.stroke();
-    prevAngle = endAngle;
-  }
-
-  // Needle with glow
-  const fraction = Math.min(aqi, 500) / 500;
-  const needleAngle = Math.PI + fraction * Math.PI;
-  ctx.save();
-  ctx.shadowColor = isDark ? "rgba(52, 211, 153, 0.8)" : "rgba(0, 0, 0, 0.3)";
-  ctx.shadowBlur = 10;
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(
-    cx + (r - 18) * Math.cos(needleAngle),
-    cy + (r - 18) * Math.sin(needleAngle)
-  );
-  ctx.lineWidth = 3.5;
-  ctx.strokeStyle = needleColor;
-  ctx.lineCap = "round";
-  ctx.stroke();
-  ctx.restore();
-
-  // Centre dot
-  ctx.beginPath();
-  ctx.arc(cx, cy, 7, 0, 2 * Math.PI);
-  ctx.fillStyle = needleColor;
-  ctx.fill();
-}
-
-// ===== BEFORE/AFTER BAR CHART (canvas) =====
-function drawSimChart(before, after) {
-  const canvas = $("#sim-chart");
-  if (!canvas) return;
-  const ctx = canvas.getContext("2d");
-  const w = canvas.width, h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
-
-  const isDark = document.documentElement.dataset.theme === "dark" || 
-                 window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const textColor = isDark ? "#f8fafc" : "#0f172a";
-  const subtextColor = isDark ? "#94a3b8" : "#64748b";
-
-  const maxVal = Math.max(before, after, 1);
-  const barW = 100, gap = 60, startX = 80;
-  const maxH = h - 50;
-
-  const drawBar = (x, val, color, label) => {
-    const bh = (val / maxVal) * maxH;
-    const y = h - 30 - bh;
-    
-    // Bar gradient
-    const grad = ctx.createLinearGradient(0, y, 0, y + bh);
-    grad.addColorStop(0, color);
-    grad.addColorStop(1, color + "aa");
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.roundRect(x, y, barW, bh, [6, 6, 0, 0]);
-    ctx.fill();
-
-    // Value text
-    ctx.fillStyle = textColor;
-    ctx.font = "bold 14px system-ui";
-    ctx.textAlign = "center";
-    ctx.fillText(val.toFixed(1), x + barW / 2, y - 8);
-    ctx.fillStyle = subtextColor;
-    ctx.font = "12px system-ui";
-    ctx.fillText(label, x + barW / 2, h - 10);
+function getAppState() {
+  return {
+    ...state,
+    lang: getLang(),
   };
-
-  drawBar(startX, before, "#ef4444", "Before");
-  drawBar(startX + barW + gap, after, "#10b981", "After");
-
-  // Y-axis label
-  ctx.save();
-  ctx.translate(20, h / 2);
-  ctx.rotate(-Math.PI / 2);
-  ctx.textAlign = "center";
-  ctx.font = "11px system-ui";
-  ctx.fillStyle = subtextColor;
-  ctx.fillText("PM2.5 µg/day", 0, 0);
-  ctx.restore();
 }
 
-// ===== NUMBER ANIMATION HELPER =====
-function animateValue(el, start, end, duration = 800) {
-  if (!el) return;
-  let startTimestamp = null;
-  const step = (timestamp) => {
-    if (!startTimestamp) startTimestamp = timestamp;
-    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-    const eased = 1 - Math.pow(1 - progress, 3);
-    const current = Math.floor(start + eased * (end - start));
-    el.textContent = current;
-    if (progress < 1) {
-      window.requestAnimationFrame(step);
-    } else {
-      el.textContent = Math.round(end);
-    }
-  };
-  window.requestAnimationFrame(step);
-}
-
-// ===== HEAT STRIP =====
-function renderHeatStrip(hourly) {
-  const strip = $("#heat-strip");
-  if (!strip) return;
-  strip.textContent = "";
-  const tagColor = { safe: "#00e400", caution: "#ff7e00", avoid: "#ff0000" };
-  hourly.forEach((h) => {
-    const cell = el("div", null, { class: "heat-cell" });
-    cell.style.background = tagColor[h.tag] || "#ccc";
-    cell.setAttribute("data-hour", h.hour);
-    cell.setAttribute("title", `${h.hour}:00 — AQI ${h.aqi.toFixed(0)} (${h.tag})`);
-    cell.setAttribute("aria-label", `${h.hour}:00 AQI ${h.aqi.toFixed(0)}, ${h.tag}`);
-    strip.appendChild(cell);
-  });
-}
-
-// ===== TIMELINE =====
-function renderTimeline(tasks) {
-  const list = $("#timeline-list");
-  if (!list) return;
-  list.textContent = "";
-  tasks.forEach((task) => {
-    const li = el("li", null, { class: "timeline-item" });
-    li.appendChild(el("span", task.time, { class: "timeline-time" }));
-    li.appendChild(el("span", task.icon, { class: "timeline-icon", "aria-hidden": "true" }));
-    const content = el("div", null, { class: "timeline-content" });
-    content.appendChild(el("p", task.task, { class: "timeline-task" }));
-    content.appendChild(el("p", task.reason, { class: "timeline-reason" }));
-    li.appendChild(content);
-    list.appendChild(li);
-  });
-}
-
-// ===== INDOOR HACKS =====
-function renderHacks(hacks) {
-  const grid = $("#hacks-grid");
-  if (!grid) return;
-  grid.textContent = "";
-  hacks.forEach((h) => {
-    const card = el("div", null, { class: "measure-card", role: "listitem" });
-
-    // Card Header with category icon & cost badge
-    const header = el("div", null, { class: "alt-card-header" });
-    const iconWrap = el("div", null, { class: "alt-icon-wrap" });
-    const tipIcon = (h.cost_tier === "zero" || h.cost_tier === "free") ? "💡" : h.cost_tier === "low" ? "🧹" : "🏠";
-    iconWrap.appendChild(el("span", tipIcon, { class: "alt-icon" }));
-    header.appendChild(iconWrap);
-
-    const badgeWrap = el("div", null, { class: "alt-badges-wrap" });
-    const costClass = (h.cost_tier === "zero" || h.cost_tier === "free") ? "tag-free" : h.cost_tier === "low" ? "tag-low" : "tag-medium";
-    const costLabel = (h.cost_tier === "zero" || h.cost_tier === "free") ? "Zero-Cost" : h.cost_tier === "low" ? "Low-Cost" : "High-Impact";
-    badgeWrap.appendChild(el("span", costLabel, { class: `tag ${costClass}` }));
-    if (h.effort) badgeWrap.appendChild(el("span", h.effort, { class: "tag" }));
-    header.appendChild(badgeWrap);
-    card.appendChild(header);
-
-    card.appendChild(el("h3", h.title, { class: "card-title" }));
-    card.appendChild(el("p", h.description, { class: "card-desc" }));
-
-    if (h.effect_pct > 0) {
-      const barWrap = el("div", null, { class: "effect-bar-wrap" });
-      barWrap.appendChild(el("div", `Estimated PM2.5 reduction: ~${h.effect_pct}%`, { class: "effect-bar-label" }));
-      const bar = el("div", null, { class: "effect-bar" });
-      const fill = el("div", null, { class: "effect-fill" });
-      fill.style.width = `${Math.min(100, h.effect_pct)}%`;
-      bar.appendChild(fill);
-      barWrap.appendChild(bar);
-      card.appendChild(barWrap);
-    }
-
-    if (h.myth_bust) {
-      card.appendChild(el("p", h.myth_bust, { class: "myth-bust" }));
-    }
-
-    grid.appendChild(card);
-  });
-}
-
-// ===== ALTERNATIVES =====
-let _allAlternatives = [];
-
-function renderAlternatives(alts) {
-  _allAlternatives = alts || [];
-  const grid = $("#alternatives-grid");
-  if (!grid) return;
-  grid.textContent = "";
-
-  _allAlternatives.forEach((a) => {
-    const card = el("div", null, { class: `alt-card alt-cat-${a.category || "transit"}`, role: "listitem", "data-category": a.category || "transit" });
-
-    // Card Header with category icon, category pill & effort badge
-    const header = el("div", null, { class: "alt-card-header" });
-    const iconWrap = el("div", null, { class: "alt-icon-wrap" });
-    iconWrap.appendChild(el("span", a.icon || "🌱", { class: "alt-icon" }));
-    header.appendChild(iconWrap);
-
-    const badgeWrap = el("div", null, { class: "alt-badges-wrap" });
-    const categoryName = a.category === "transit" ? "Transit Swap" : a.category === "cooking" ? "Clean Cooking" : "Home & Work";
-    badgeWrap.appendChild(el("span", categoryName, { class: "tag tag-category" }));
-
-    const effortLabel = a.effort || "Recommended";
-    const effortClass = (effortLabel === "Easy" || effortLabel === "Zero-Cost") ? "tag-free" : effortLabel === "Low-Cost" ? "tag-low" : "tag-medium";
-    badgeWrap.appendChild(el("span", effortLabel, { class: `tag ${effortClass}` }));
-    header.appendChild(badgeWrap);
-    card.appendChild(header);
-
-    // Title & description
-    card.appendChild(el("h3", a.title, { class: "card-title" }));
-    card.appendChild(el("p", a.description, { class: "card-desc" }));
-
-    // Key Impact Metrics Grid
-    const metricsGrid = el("div", null, { class: "alt-metrics-grid" });
-    if (a.exposure_change_pct < 0) {
-      const m1 = el("div", null, { class: "alt-metric" });
-      m1.appendChild(el("span", "Personal Dose Cut", { class: "alt-m-label" }));
-      m1.appendChild(el("span", `⬇ ${Math.abs(a.exposure_change_pct)}%`, { class: "alt-m-val text-success" }));
-      metricsGrid.appendChild(m1);
-    }
-    if (a.emission_change_gco2e_per_km < 0) {
-      const m2 = el("div", null, { class: "alt-metric" });
-      m2.appendChild(el("span", "Carbon Saved", { class: "alt-m-label" }));
-      m2.appendChild(el("span", `${a.emission_change_gco2e_per_km.toFixed(0)} g/km`, { class: "alt-m-val text-accent" }));
-      metricsGrid.appendChild(m2);
-    }
-    if (a.monthly_savings_inr) {
-      const m3 = el("div", null, { class: "alt-metric" });
-      m3.appendChild(el("span", "Est. Fuel Saved", { class: "alt-m-label" }));
-      m3.appendChild(el("span", `~₹${a.monthly_savings_inr}/mo`, { class: "alt-m-val text-warning" }));
-      metricsGrid.appendChild(m3);
-    }
-    card.appendChild(metricsGrid);
-
-    // Community note
-    if (a.community_note) {
-      const note = el("p", `🌍 ${a.community_note}`, { class: "card-desc card-community" });
-      card.appendChild(note);
-    }
-
-    // Action button: Test in What-If
-    if (a.sim_action_id) {
-      const btn = el("button", null, { class: "btn btn-outline btn-sm btn-simulate-alt", type: "button" });
-      btn.innerHTML = `<span>🧪 Test in What-If Simulator</span> <span aria-hidden="true">→</span>`;
-      btn.addEventListener("click", () => {
-        const tabBtn = $("#tab-btn-simulator");
-        if (tabBtn) tabBtn.click();
-        const cb = document.querySelector(`#sim-actions input[name="${a.sim_action_id}"]`);
-        if (cb) {
-          cb.checked = true;
-          cb.dispatchEvent(new Event("change"));
-        }
-        $("#tab-simulator")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
-      card.appendChild(btn);
-    }
-
-    grid.appendChild(card);
-  });
-
-  initAltFilters();
-}
-
-function initAltFilters() {
-  const chips = $$(".alt-filter-chip");
-  chips.forEach((chip) => {
-    chip.addEventListener("click", () => {
-      chips.forEach((c) => c.classList.remove("active"));
-      chip.classList.add("active");
-      const filter = chip.getAttribute("data-filter");
-      const cards = $$(".alt-card");
-      cards.forEach((card) => {
-        const cat = card.getAttribute("data-category");
-        if (filter === "all" || cat === filter) {
-          card.style.display = "flex";
-        } else {
-          card.style.display = "none";
-        }
-      });
-    });
-  });
-}
-
-// ===== RISK BADGE =====
-function renderRiskBadge(result) {
-  const badge = $("#risk-badge");
-  if (!badge) return;
-  badge.style.background = result.risk_color + "22";
-  badge.style.border = `2px solid ${result.risk_color}`;
-  badge.style.color = result.risk_color;
-  $("#risk-icon").textContent = result.risk_icon;
-  $("#risk-level-text").textContent = result.risk_level;
-  $("#risk-score-text").textContent = `(${result.risk_score}/100)`;
-}
-
-// ===== RISK REASONS =====
-function renderReasons(reasons) {
-  const list = $("#risk-reasons-list");
-  if (!list) return;
-  list.textContent = "";
-  reasons.forEach((r) => {
-    const li = el("li", null, {});
-    li.appendChild(el("span", r.description, {}));
-    list.appendChild(li);
-  });
-}
-
-// ===== TIPS =====
-function renderTips(familyTips, kidsTips) {
-  const fl = $("#family-tips-list");
-  if (fl) {
-    fl.textContent = "";
-    familyTips.forEach((tip) => fl.appendChild(el("li", tip)));
-  }
-  const kl = $("#kids-tips-list");
-  if (kl) {
-    kl.textContent = "";
-    kidsTips.forEach((tip) => kl.appendChild(el("li", tip)));
-  }
-}
-
-// ===== SIMULATOR =====
-function renderSimActions() {
-  const container = $("#sim-actions");
-  if (!container) return;
-  container.textContent = "";
-
-  SIM_ACTIONS.forEach((action, idx) => {
-    const item = el("label", null, { class: "sim-action-item" });
-
-    const leftWrap = el("div", null, { class: "sim-item-left" });
-    leftWrap.appendChild(el("span", action.icon || "⚡", { class: "sim-item-icon" }));
-
-    const textWrap = el("div", null, { class: "sim-item-text" });
-    const titleRow = el("div", null, { class: "sim-title-row" });
-    titleRow.appendChild(el("span", action.label, { class: "sim-action-label" }));
-    if (action.tag) {
-      titleRow.appendChild(el("span", action.tag, { class: "sim-action-tag" }));
-    }
-    textWrap.appendChild(titleRow);
-    textWrap.appendChild(el("div", action.desc, { class: "sim-action-desc" }));
-    leftWrap.appendChild(textWrap);
-    item.appendChild(leftWrap);
-
-    // Toggle switch
-    const toggleWrap = el("div", null, { class: "sim-switch-wrap" });
-    const cb = el("input", null, { type: "checkbox", class: "sim-switch-input" });
-    cb.name = action.id;
-    // Default check induction and metro for instant high-impact demo
-    if (idx === 1 || idx === 2) {
-      cb.checked = true;
-      item.classList.add("active");
-    }
-
-    const updateItemActive = () => {
-      if (cb.checked) item.classList.add("active");
-      else item.classList.remove("active");
-    };
-
-    cb.addEventListener("change", () => {
-      updateItemActive();
-      runSimulation();
-    });
-
-    const slider = el("span", null, { class: "sim-switch-slider", "aria-hidden": "true" });
-    toggleWrap.appendChild(cb);
-    toggleWrap.appendChild(slider);
-    item.appendChild(toggleWrap);
-
-    container.appendChild(item);
-  });
-
-  initPresets();
-  runSimulation();
-}
-
-function initPresets() {
-  const chips = $$(".preset-chip");
-  chips.forEach((chip) => {
-    chip.addEventListener("click", () => {
-      chips.forEach((c) => c.classList.remove("active"));
-      chip.classList.add("active");
-      const preset = chip.getAttribute("data-preset");
-
-      const cbs = $$('#sim-actions input[type="checkbox"]');
-      cbs.forEach((cb) => { cb.checked = false; });
-
-      if (preset === "balanced") {
-        setCheck("switch_to_induction", true);
-        setCheck("switch_commute_to_metro", true);
-      } else if (preset === "zero_cost") {
-        setCheck("switch_commute_to_cycle", true);
-        setCheck("work_from_home_2_days", true);
-      } else if (preset === "max_protection") {
-        setCheck("add_air_purifier", true);
-        setCheck("switch_to_induction", true);
-        setCheck("switch_commute_to_metro", true);
-      } else if (preset === "eco_commute") {
-        setCheck("switch_commute_to_metro", true);
-        setCheck("switch_commute_to_cycle", true);
-        setCheck("work_from_home_2_days", true);
-      } else if (preset === "reset") {
-        // all unchecked
-      }
-
-      // Update .active class on all items
-      $$(".sim-action-item").forEach((item) => {
-        const input = item.querySelector('input[type="checkbox"]');
-        if (input && input.checked) item.classList.add("active");
-        else item.classList.remove("active");
-      });
-
-      runSimulation();
-    });
-  });
-}
-
-function setCheck(name, val) {
-  const cb = document.querySelector(`#sim-actions input[name="${name}"]`);
-  if (cb) cb.checked = val;
-}
-
-async function runSimulation() {
-  if (!state.location || !state.profile) return;
-
-  const checked = $$('#sim-actions input[type=checkbox]:checked');
-  const actions = Array.from(checked).map((cb) => ({
-    action_id: cb.name,
-    enabled: true,
-  }));
-
-  try {
-    const outdoorPm25 = Number(state.assessment?.current_pm25 ?? 120.0);
-    const res = await fetch(API.simulate, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        outdoor_pm25: outdoorPm25,
-        location: state.location,
-        profile: { ...state.profile, language: getLang() },
-        actions,
-      }),
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-
-    const beforeDose = Number(data.before_pm25_dose_ug ?? data.baseline_daily_pm25_dose_ug ?? 0);
-    const afterDose = Number(data.after_pm25_dose_ug ?? data.intervention_daily_pm25_dose_ug ?? 0);
-    const co2Saved = Number(data.co2e_saved_per_year_kg ?? data.annual_co2_kg_saved ?? 0);
-    const equivKm = Number(data.equivalent_km_not_driven ?? 0);
-
-    show($("#sim-results"));
-
-    // Comparison Hero Update
-    const compBeforeVal = $("#comp-before-val");
-    if (compBeforeVal) compBeforeVal.textContent = Math.round(beforeDose);
-    const compBeforeCigs = $("#comp-before-cigs");
-    if (compBeforeCigs) compBeforeCigs.textContent = `≈ ${(beforeDose / 22).toFixed(1)} cigs/day equiv`;
-
-    const compAfterVal = $("#comp-after-val");
-    if (compAfterVal) compAfterVal.textContent = Math.round(afterDose);
-    const compAfterCigs = $("#comp-after-cigs");
-    if (compAfterCigs) compAfterCigs.textContent = `≈ ${(afterDose / 22).toFixed(1)} cigs/day equiv`;
-
-    const reductionPct = beforeDose > 0 ? Math.max(0, Math.round(((beforeDose - afterDose) / beforeDose) * 100)) : 0;
-    const reductionVal = $("#sim-reduction-pct");
-    if (reductionVal) reductionVal.textContent = `${reductionPct}%`;
-
-    const compBarAfter = $("#comp-bar-after");
-    if (compBarAfter) {
-      const pctWidth = beforeDose > 0 ? Math.max(12, Math.min(100, Math.round((afterDose / beforeDose) * 100))) : 40;
-      compBarAfter.style.width = `${pctWidth}%`;
-    }
-
-    // 4 Metrics Grid Update
-    $("#sim-before-dose").textContent = beforeDose.toFixed(1);
-    $("#sim-after-dose").textContent = afterDose.toFixed(1);
-    $("#sim-co2-saved").textContent = co2Saved.toFixed(1);
-    $("#sim-equiv-km").textContent = equivKm.toFixed(0);
-
-    drawSimChart(beforeDose, afterDose);
-
-    const formulaEl = $("#sim-formula");
-    if (formulaEl && data.formula) formulaEl.textContent = data.formula;
-
-    const assumptionsList = $("#sim-assumptions");
-    if (assumptionsList && Array.isArray(data.assumptions)) {
-      assumptionsList.textContent = "";
-      data.assumptions.forEach((a) => assumptionsList.appendChild(el("li", a)));
-    }
-  } catch (e) {
-    console.error("Simulation error:", e);
-  }
-}
-
-// ===== CHAT =====
-function formatMarkdown(text) {
-  if (!text) return "";
-  let html = text
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.*?)\*/g, "<em>$1</em>")
-    .replace(/^• (.*?)$/gm, "<li>$1</li>")
-    .replace(/^- (.*?)$/gm, "<li>$1</li>");
-
-  html = html.replace(/(<li>.*?<\/li>)/gs, "<ul class='chat-list'>$1</ul>");
-  html = html.replace(/\n\n/g, "<p></p>").replace(/\n/g, "<br>");
-  return html;
-}
-
-function initChat() {
-  const container = $("#chat-messages");
-  if (!container || container.children.length > 0) return;
-  appendAssistantMessage(
-    `**Namaste! I am your SaansSafe Intelligence Assistant.** 🌿\n\nI am grounded in live local air quality readings and your household profile. How can I help protect your family today?\n\n• **Kids & Elders:** Is it safe to go out right now?\n• **Mask Guidance:** N95 vs cloth vs surgical masks\n• **Ventilation:** Best hours to air out your home\n• **Air Purifiers:** Placement, DIY filters, and maintenance`
-  );
-}
-
-function appendUserMessage(text) {
-  const container = $("#chat-messages");
-  if (!container) return;
-  const bubble = el("div", null, { class: "chat-bubble user" });
-
-  const header = el("div", null, { class: "bubble-header" });
-  header.appendChild(el("span", "👤", { class: "bubble-avatar" }));
-  header.appendChild(el("span", "You", { class: "bubble-sender" }));
-  bubble.appendChild(header);
-
-  const content = el("div", text, { class: "bubble-content" });
-  bubble.appendChild(content);
-
-  container.appendChild(bubble);
-  container.scrollTop = container.scrollHeight;
-}
-
-function appendAssistantMessage(text) {
-  const container = $("#chat-messages");
-  if (!container) return;
-  const bubble = el("div", null, { class: "chat-bubble assistant" });
-
-  const header = el("div", null, { class: "bubble-header" });
-  header.appendChild(el("span", "🌱", { class: "bubble-avatar" }));
-  header.appendChild(el("span", "SaansSafe Assistant", { class: "bubble-sender" }));
-  header.appendChild(el("span", "Grounded AI", { class: "bubble-badge" }));
-  bubble.appendChild(header);
-
-  const content = el("div", null, { class: "bubble-content" });
-  content.innerHTML = formatMarkdown(text);
-  bubble.appendChild(content);
-
-  container.appendChild(bubble);
-  container.scrollTop = container.scrollHeight;
-}
-
-async function sendChat() {
-  const input = $("#chat-input");
-  if (!input) return;
-  const msg = input.value.trim();
-  if (!msg) return;
-
-  appendUserMessage(msg);
-  input.value = "";
-  state.chatHistory.push({ role: "user", content: msg });
-
-  const typingBubble = el("div", null, { class: "chat-bubble assistant typing-bubble" });
-  typingBubble.innerHTML = `
-    <div class="typing-dots">
-      <span></span><span></span><span></span>
-    </div>
-  `;
-  $("#chat-messages")?.appendChild(typingBubble);
-  $("#chat-messages").scrollTop = $("#chat-messages").scrollHeight;
-
-  try {
-    const res = await fetch(API.chat, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: state.location,
-        profile: { ...state.profile, language: getLang() },
-        history: state.chatHistory.slice(-6),
-        message: msg,
-        assessment_context: state.assessment || {},
-      }),
-    });
-    typingBubble.remove();
-
-    if (!res.ok) {
-      appendAssistantMessage("⚠️ I could not process that request right now. Please try again.");
-      return;
-    }
-    const data = await res.json();
-    appendAssistantMessage(data.reply);
-    state.chatHistory.push({ role: "assistant", content: data.reply });
-  } catch (e) {
-    typingBubble.remove();
-    appendAssistantMessage("⚠️ Network communication error. Please check your connection.");
-  }
-}
-
-// ===== GEOCODE =====
+// ===== GEOCODE & LOCATION =====
 const debouncedGeocode = debounce(async (query) => {
   if (query.length < 2) return;
   try {
@@ -763,18 +79,25 @@ const debouncedGeocode = debounce(async (query) => {
     if (!res.ok) return;
     const data = await res.json();
     renderSuggestions(data.results || []);
-  } catch (e) { /* silent */ }
+  } catch (e) {
+    /* silent network catch */
+  }
 }, 350);
 
 function renderSuggestions(results) {
   const list = $("#city-suggestions");
   if (!list) return;
   list.textContent = "";
-  if (results.length === 0) { hide(list); return; }
+  if (results.length === 0) {
+    hide(list);
+    return;
+  }
   results.forEach((r) => {
     const li = el("li", `${r.name}, ${r.country}`, { role: "option", tabindex: "0" });
     li.addEventListener("click", () => selectLocation(r));
-    li.addEventListener("keydown", (e) => { if (e.key === "Enter") selectLocation(r); });
+    li.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") selectLocation(r);
+    });
     list.appendChild(li);
   });
   show(list);
@@ -791,10 +114,31 @@ function selectLocation(r) {
 function showLocationBanner(name) {
   const disp = $("#location-display");
   const txt = $("#location-text");
-  if (disp && txt) { txt.textContent = name; show(disp); }
+  if (disp && txt) {
+    txt.textContent = name;
+    show(disp);
+  }
 }
 
-// ===== ASSESSMENT =====
+function useGeolocation() {
+  if (!("geolocation" in navigator)) {
+    alert("Geolocation is not supported by your browser.");
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      state.location = {
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        city_name: `${pos.coords.latitude.toFixed(2)}°N, ${pos.coords.longitude.toFixed(2)}°E`,
+      };
+      showLocationBanner(state.location.city_name);
+    },
+    () => alert("Could not get your location. Please search for your city instead.")
+  );
+}
+
+// ===== ASSESSMENT CONTROLLER =====
 async function runAssessment() {
   if (!state.location) {
     alert("Please select a location first.");
@@ -806,9 +150,9 @@ async function runAssessment() {
 
   const fd = new FormData(form);
   const profile = {
-    infants_children: parseInt(fd.get("infants_children")) || 0,
-    adults: parseInt(fd.get("adults")) || 1,
-    elderly: parseInt(fd.get("elderly")) || 0,
+    infants_children: parseInt(fd.get("infants_children"), 10) || 0,
+    adults: parseInt(fd.get("adults"), 10) || 1,
+    elderly: parseInt(fd.get("elderly"), 10) || 0,
     pregnant: fd.get("pregnant") === "on",
     has_asthma_copd: fd.get("has_asthma_copd") === "on",
     has_heart_condition: fd.get("has_heart_condition") === "on",
@@ -818,7 +162,7 @@ async function runAssessment() {
     uses_ac_or_cooler: fd.get("uses_ac_or_cooler") === "on",
     commute_mode: fd.get("commute_mode") || "car",
     commute_distance_km: parseFloat(fd.get("commute_distance_km")) || 0,
-    commute_days_per_week: parseInt(fd.get("commute_days_per_week")) || 0,
+    commute_days_per_week: parseInt(fd.get("commute_days_per_week"), 10) || 0,
     school_run: fd.get("school_run") === "on",
     morning_walker_jogger: fd.get("morning_walker_jogger") === "on",
     budget: fd.get("budget") || "medium",
@@ -898,16 +242,14 @@ async function runAssessment() {
 }
 
 function renderAssessment(data) {
-  // AI badge
+  // AI status badge
   const aiBadge = $("#ai-badge");
   if (aiBadge) {
-    if (data.ai_generated) {
-      aiBadge.querySelector("#ai-badge-text").textContent = t("ai_powered");
-      show(aiBadge);
-    } else {
-      aiBadge.querySelector("#ai-badge-text").textContent = "Rule-based guidance (AI unavailable)";
-      show(aiBadge);
+    const txtEl = aiBadge.querySelector("#ai-badge-text");
+    if (txtEl) {
+      txtEl.textContent = data.ai_generated ? t("ai_powered") : "Rule-based guidance (AI unavailable)";
     }
+    show(aiBadge);
   }
 
   // Set hazard glow on gauge wrap
@@ -958,6 +300,51 @@ function renderAssessment(data) {
   }
 
   // Activity safety directives
+  updateActivityDirectives(data);
+
+  // Print date
+  $("#print-date").textContent = new Date().toLocaleDateString(getLang());
+
+  // Tab contents
+  renderHeatStrip(data.hourly_forecast || []);
+  renderTimeline(data.timeline_tasks || []);
+  renderTips(data.family_tips || [], data.kid_and_elder_notes || []);
+
+  const tipsSection = $("#tips-section");
+  if ((data.family_tips?.length || data.kid_and_elder_notes?.length)) show(tipsSection);
+
+  const nudge = $("#motivational-nudge");
+  if (nudge && data.motivational_nudge) {
+    nudge.textContent = data.motivational_nudge;
+    show(nudge);
+  }
+
+  renderHacks(data.indoor_hacks || []);
+  renderAlternatives(data.sustainable_alternatives || [], (actionId) => {
+    const tabBtn = $("#tab-btn-simulator");
+    if (tabBtn) tabBtn.click();
+    const cb = document.querySelector(`#sim-actions input[name="${actionId}"]`);
+    if (cb) {
+      cb.checked = true;
+      cb.dispatchEvent(new Event("change"));
+    }
+    $("#tab-simulator")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  const tabsWrap = $("#tabs-wrap");
+  if (tabsWrap) {
+    tabsWrap.classList.remove("fade-in-up", "stagger-3");
+    void tabsWrap.offsetWidth;
+    tabsWrap.classList.add("fade-in-up", "stagger-3");
+    show(tabsWrap);
+  }
+  show($("#print-actions"));
+
+  // Set up simulator with current state
+  renderSimActions(getAppState, API.simulate);
+}
+
+function updateActivityDirectives(data) {
   const actWalk = $("#act-walk-status");
   const actPlay = $("#act-play-status");
   const actVent = $("#act-vent-status");
@@ -1014,38 +401,6 @@ function renderAssessment(data) {
       actMask.className = "act-status status-safe";
     }
   }
-
-  // Print date
-  $("#print-date").textContent = new Date().toLocaleDateString(getLang());
-
-  // Tabs
-  renderHeatStrip(data.hourly_forecast || []);
-  renderTimeline(data.timeline_tasks || []);
-  renderTips(data.family_tips || [], data.kid_and_elder_notes || []);
-
-  const tipsSection = $("#tips-section");
-  if ((data.family_tips?.length || data.kid_and_elder_notes?.length)) show(tipsSection);
-
-  const nudge = $("#motivational-nudge");
-  if (nudge && data.motivational_nudge) {
-    nudge.textContent = data.motivational_nudge;
-    show(nudge);
-  }
-
-  renderHacks(data.indoor_hacks || []);
-  renderAlternatives(data.sustainable_alternatives || []);
-
-  const tabsWrap = $("#tabs-wrap");
-  if (tabsWrap) {
-    tabsWrap.classList.remove("fade-in-up", "stagger-3");
-    void tabsWrap.offsetWidth;
-    tabsWrap.classList.add("fade-in-up", "stagger-3");
-    show(tabsWrap);
-  }
-  show($("#print-actions"));
-
-  // Set up simulator
-  renderSimActions();
 }
 
 function showError(msg) {
@@ -1057,12 +412,15 @@ function showError(msg) {
   }
 }
 
-// ===== TABS =====
+// ===== ACCESSIBILITY & TABS =====
 function initTabs() {
   const tabs = $$(".tab");
   tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
-      tabs.forEach((t) => { t.classList.remove("active"); t.setAttribute("aria-selected", "false"); });
+      tabs.forEach((t) => {
+        t.classList.remove("active");
+        t.setAttribute("aria-selected", "false");
+      });
       tab.classList.add("active");
       tab.setAttribute("aria-selected", "true");
       const panelId = tab.getAttribute("aria-controls");
@@ -1071,11 +429,11 @@ function initTabs() {
       if (panel) {
         show(panel);
         if (panelId === "tab-simulator") {
-          runSimulation();
+          runSimulation(getAppState, API.simulate);
         }
       }
     });
-    // Keyboard navigation
+
     tab.addEventListener("keydown", (e) => {
       const tabList = Array.from(tabs);
       const idx = tabList.indexOf(e.target);
@@ -1085,7 +443,6 @@ function initTabs() {
   });
 }
 
-// ===== READ ALOUD =====
 function readAloud() {
   if (!("speechSynthesis" in window)) {
     alert("Text-to-speech is not supported in your browser.");
@@ -1102,41 +459,20 @@ function readAloud() {
   window.speechSynthesis.speak(utt);
 }
 
-// ===== GEOLOCATION =====
-function useGeolocation() {
-  if (!("geolocation" in navigator)) {
-    alert("Geolocation is not supported by your browser.");
-    return;
-  }
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      state.location = {
-        lat: pos.coords.latitude,
-        lon: pos.coords.longitude,
-        city_name: `${pos.coords.latitude.toFixed(2)}°N, ${pos.coords.longitude.toFixed(2)}°E`,
-      };
-      showLocationBanner(state.location.city_name);
-    },
-    () => alert("Could not get your location. Please search for your city instead.")
-  );
-}
-
-// ===== DEMO PROFILE =====
 function loadDemo() {
   state.location = { ...DELHI_DEMO.location };
   state.profile = { ...DELHI_DEMO.profile, language: getLang() };
   showLocationBanner("New Delhi");
 
-  // Fill form
   const prof = DELHI_DEMO.profile;
   const setVal = (name, val) => {
-    const el = $(`[name="${name}"]`);
-    if (el) {
-      if (el.type === "checkbox") el.checked = val;
-      else if (el.type === "radio") {
+    const field = $(`[name="${name}"]`);
+    if (field) {
+      if (field.type === "checkbox") field.checked = val;
+      else if (field.type === "radio") {
         const r = $(`[name="${name}"][value="${val}"]`);
         if (r) r.checked = true;
-      } else el.value = val;
+      } else field.value = val;
     }
   };
   Object.entries(prof).forEach(([k, v]) => setVal(k, v));
@@ -1145,11 +481,9 @@ function loadDemo() {
   if (input) input.value = "New Delhi, India";
   showLocationBanner("New Delhi, India (28.61°, 77.21°)");
 
-  // Auto-run
   runAssessment();
 }
 
-// ===== ACCESSIBILITY & THEME CONTROLS =====
 function initA11yToggles() {
   const btnLarge = $("#btn-large-text");
   const btnHC = $("#btn-high-contrast");
@@ -1193,91 +527,7 @@ function initA11yToggles() {
   });
 }
 
-// ===== AMBIENT PARTICLES CANVAS =====
-function initAmbientCanvas() {
-  const canvas = $("#ambient-canvas");
-  if (!canvas) return;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-  const ctx = canvas.getContext("2d");
-  const parent = canvas.parentElement;
-  let w = (canvas.width = parent?.offsetWidth || canvas.offsetWidth || 900);
-  let h = (canvas.height = parent?.offsetHeight || canvas.offsetHeight || 320);
-
-  const particleCount = 45;
-  const particles = Array.from({ length: particleCount }, () => ({
-    x: Math.random() * w,
-    y: Math.random() * h,
-    r: Math.random() * 2.2 + 1,
-    dx: (Math.random() - 0.5) * 0.4,
-    dy: -Math.random() * 0.35 - 0.1,
-    alpha: Math.random() * 0.6 + 0.25,
-    hue: Math.random() > 0.45 ? 160 : 195,
-  }));
-
-  let mouse = { x: -1000, y: -1000 };
-  parent?.addEventListener("mousemove", (e) => {
-    const rect = canvas.getBoundingClientRect();
-    mouse.x = e.clientX - rect.left;
-    mouse.y = e.clientY - rect.top;
-  });
-  parent?.addEventListener("mouseleave", () => {
-    mouse.x = -1000;
-    mouse.y = -1000;
-  });
-
-  function animate() {
-    ctx.clearRect(0, 0, w, h);
-
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      p.x += p.dx;
-      p.y += p.dy;
-
-      const mdx = p.x - mouse.x;
-      const mdy = p.y - mouse.y;
-      const mdist = Math.hypot(mdx, mdy);
-      if (mdist < 70) {
-        p.x += (mdx / mdist) * 1.5;
-        p.y += (mdy / mdist) * 1.5;
-      }
-
-      if (p.y < -10) p.y = h + 10;
-      if (p.x < -10) p.x = w + 10;
-      if (p.x > w + 10) p.x = -10;
-
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = `hsla(${p.hue}, 85%, 60%, ${p.alpha})`;
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = `hsla(${p.hue}, 85%, 60%, 0.5)`;
-      ctx.fill();
-
-      for (let j = i + 1; j < particles.length; j++) {
-        const p2 = particles[j];
-        const dist = Math.hypot(p.x - p2.x, p.y - p2.y);
-        if (dist < 65) {
-          ctx.beginPath();
-          ctx.moveTo(p.x, p.y);
-          ctx.lineTo(p2.x, p2.y);
-          ctx.strokeStyle = `hsla(160, 80%, 65%, ${(1 - dist / 65) * 0.16})`;
-          ctx.lineWidth = 0.8;
-          ctx.stroke();
-        }
-      }
-    }
-    requestAnimationFrame(animate);
-  }
-  requestAnimationFrame(animate);
-
-  window.addEventListener("resize", () => {
-    if (!canvas) return;
-    w = canvas.width = parent?.offsetWidth || canvas.offsetWidth || 900;
-    h = canvas.height = parent?.offsetHeight || canvas.offsetHeight || 320;
-  });
-}
-
-// ===== INIT =====
+// ===== BOOTSTRAP INITIALIZATION =====
 async function init() {
   applyTranslations();
   initTabs();
@@ -1288,16 +538,15 @@ async function init() {
   $("#lang-select")?.addEventListener("change", (e) => {
     setLang(e.target.value);
     applyTranslations();
-    // Update demo profile language
     if (state.profile) state.profile.language = getLang();
   });
 
-  // City search
+  // City search autocomplete
   $("#city-search")?.addEventListener("input", (e) => debouncedGeocode(e.target.value));
   $("#city-search")?.addEventListener("blur", () => setTimeout(() => hide($("#city-suggestions")), 150));
 
   // Quick city hotspot chips
-  document.querySelectorAll(".city-chip").forEach((chip) => {
+  $$(".city-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
       const city = chip.getAttribute("data-city");
       const lat = parseFloat(chip.getAttribute("data-lat"));
@@ -1315,19 +564,18 @@ async function init() {
     });
   });
 
-  // Geolocation button
+  // Geolocation & Demo buttons
   $("#btn-geolocate")?.addEventListener("click", useGeolocation);
-
-  // Demo button
   $("#btn-demo")?.addEventListener("click", loadDemo);
 
-  // Profile form submit
-  $("#profile-form")?.addEventListener("submit", (e) => { e.preventDefault(); runAssessment(); });
+  // Profile form submission
+  $("#profile-form")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    runAssessment();
+  });
 
-  // Retry
+  // Retry & Read Aloud
   $("#btn-retry")?.addEventListener("click", runAssessment);
-
-  // Read aloud
   $("#btn-read-aloud")?.addEventListener("click", readAloud);
 
   // Chat
@@ -1338,16 +586,18 @@ async function init() {
     state.chatHistory = [];
     initChat();
   });
-  $("#btn-chat-send")?.addEventListener("click", sendChat);
-  $("#chat-input")?.addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
+  $("#btn-chat-send")?.addEventListener("click", () => sendChat(getAppState, API.chat));
+  $("#chat-input")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendChat(getAppState, API.chat);
+  });
 
   // Chat suggestion chips
-  document.querySelectorAll(".chat-chip").forEach((btn) => {
+  $$(".chat-chip").forEach((btn) => {
     btn.addEventListener("click", () => {
       const input = $("#chat-input");
       if (input) {
         input.value = btn.textContent.replace(/^[\p{Emoji}\s]+/u, "").trim();
-        sendChat();
+        sendChat(getAppState, API.chat);
       }
     });
   });
@@ -1385,14 +635,16 @@ Protect Your Lungs with SaansSafe: https://promptwars-saanssafe.vercel.app/`;
     });
   });
 
-  // Check Gemini availability
+  // Check Gemini service availability
   try {
     const res = await fetch(API.health);
     if (res.ok) {
       const data = await res.json();
       state.geminiAvailable = data.gemini_available;
     }
-  } catch { /* silent */ }
+  } catch {
+    /* health check optional */
+  }
 }
 
 // Bootstrap

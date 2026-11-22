@@ -59,8 +59,12 @@ async def api_root() -> dict[str, str]:
 async def health(settings: Settings = Depends(get_settings)) -> HealthResponse:
     """Return application health status and Gemini availability.
 
+    Args:
+        settings: Application configuration settings dependency.
+
     Returns:
         HealthResponse with status, version, and gemini_available flag.
+
     """
     return HealthResponse(
         status="ok",
@@ -95,6 +99,7 @@ async def geocode(
 
     Returns:
         Up to 5 geocode results.
+
     """
     safe_q = sanitise_and_check(q, max_length=100)
     results = await air_data.geocode(safe_q)
@@ -136,9 +141,11 @@ async def assess(
 
     Args:
         body: AssessRequest with location and household profile.
+        settings: Application configuration settings dependency.
 
     Returns:
         Full AssessmentResponse.
+
     """
     lat = body.location.lat
     lon = body.location.lon
@@ -243,6 +250,7 @@ async def simulate(body: SimulateRequest) -> SimulateResponse:
 
     Returns:
         SimulateResponse with PM2.5 dose and CO2e metrics.
+
     """
     aqi_full = await air_data.fetch_air_quality(body.location.lat, body.location.lon)
     conditions = air_data.extract_current_conditions(
@@ -271,6 +279,7 @@ async def chat(body: ChatRequest) -> ChatResponse:
 
     Returns:
         ChatResponse with AI or fallback reply.
+
     """
     safe_message = sanitise_and_check(body.message, max_length=500)
 

@@ -81,6 +81,7 @@ def get_emission_factor(mode: str) -> float:
 
     Returns:
         Emission factor in gCO2e/km.
+
     """
     return EMISSION_FACTORS.get(mode, EMISSION_FACTORS["car"])["gco2e_per_km"]
 
@@ -105,6 +106,7 @@ def get_breathing_rate(age_group: str) -> float:
 
     Returns:
         Breathing rate in litres per minute.
+
     """
     return BREATHING_RATES_L_PER_MIN.get(age_group, 12.0)
 

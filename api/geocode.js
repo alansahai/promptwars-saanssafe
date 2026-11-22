@@ -1,3 +1,15 @@
+/**
+ * SaansSafe — Serverless Geocoding Endpoint
+ * Proxies Open-Meteo Geocoding API to resolve urban Indian localities.
+ * @module api/geocode
+ */
+
+/**
+ * Handle geocoding lookup.
+ *
+ * @param {import("http").IncomingMessage & { query: { q?: string } }} req - Inbound HTTP request
+ * @param {import("http").ServerResponse & { status: Function, json: Function, setHeader: Function }} res - Outbound HTTP response
+ */
 export default async function handler(req, res) {
   res.setHeader("Content-Type", "application/json");
   const q = req.query.q || "";

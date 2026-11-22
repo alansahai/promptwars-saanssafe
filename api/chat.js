@@ -1,3 +1,15 @@
+/**
+ * SaansSafe — Serverless Conversational Intelligence Endpoint
+ * Handles grounded, multi-turn AI consultations powered by Gemini 2.5 Flash.
+ * @module api/chat
+ */
+
+/**
+ * Handle conversational Q&A request.
+ *
+ * @param {import("http").IncomingMessage & { body?: any }} req - Inbound HTTP request
+ * @param {import("http").ServerResponse & { status: Function, json: Function, setHeader: Function }} res - Outbound HTTP response
+ */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ detail: "Method not allowed" });

@@ -2,21 +2,24 @@
 
 ## 1. System Overview
 
-SaansSafe is a smog-navigation assistant designed for families navigating severe winter air pollution in Indian and global urban centers. It combines real-time meteorological data, deterministic exposure modeling, and Gemini GenAI to provide hyper-personalized air-quality routines, evidence-based indoor hacks, sustainable commute alternatives, and an interactive "What-If" exposure simulator.
+SaansSafe is an AI-powered urban smog-navigation assistant designed for families navigating severe winter air pollution in Indian and global urban centers. It combines real-time meteorological data, deterministic exposure modeling, and Google Gemini 2.5 Flash to provide hyper-personalized air-quality routines, evidence-based indoor hacks, sustainable commute alternatives, and an interactive "What-If" exposure simulator.
 
 ```
 +-------------------------------------------------------------+
 |                      Client Frontend                        |
-|  Vanilla ES Modules (public/app.js, styles.css, index.html) |
-|           Multilingual: English, Hindi (हिंदी), Tamil (தமிழ்)     |
+|  Modular ES Architecture (public/app.js & public/js/*.js)   |
+|  - dom.js, charts.js, components.js, simulator.js, chat.js  |
+|  - Multilingual: English, Hindi (हिंदी), Tamil (தமிழ்)      |
+|  - Accessible: WCAG 2.1 AA, high-contrast, text-to-speech   |
 +------------------------------+------------------------------+
                                | HTTPS / JSON
                                v
 +-------------------------------------------------------------+
-|                 FastAPI Application Layer                   |
+|           Serverless API Layer (FastAPI & Node Edge)        |
 |  - Security Headers (CSP, HSTS, X-Content-Type, Frame)       |
 |  - In-memory Sliding Window Rate Limiter                    |
 |  - Strict Pydantic v2 Request Validation & Schema Bounds    |
+|  - Modular serverless controllers & catalog data contracts  |
 +------------------------------+------------------------------+
                                |
             +------------------+------------------+
@@ -45,12 +48,23 @@ SaansSafe is a smog-navigation assistant designed for families navigating severe
 
 ```
 saanssafe/
+├── .github/
+│   └── workflows/
+│       └── ci.yml             # Dual-stack CI (Python 3.11/3.12 + Node 20, Ruff lint, Pytest, Node test)
 ├── api/
-│   └── index.py               # Vercel Serverless WSGI/ASGI entrypoint
+│   ├── _lib/                  # Decoupled serverless libraries
+│   │   ├── catalog.js         # JSDoc-typed sustainable alternatives, tasks, and indoor hacks
+│   │   ├── gemini.js          # Gemini 2.5 Flash narrative generator & trilingual fallbacks
+│   │   └── meteo.js           # Open-Meteo ingestion with in-memory TTL caching
+│   ├── assess.js              # Clean controller endpoint for household assessment
+│   ├── chat.js                # Grounded Gemini chat endpoint with safety limits
+│   ├── geocode.js             # Geocoding endpoint with query sanitization
+│   ├── simulate.js            # Inhaled PM2.5 dose & carbon offset simulation endpoint
+│   └── index.py               # Vercel Serverless ASGI FastAPI entrypoint
 ├── app/
 │   ├── main.py                # FastAPI factory, security middleware, rate limiting
-│   ├── config.py              # Pydantic Settings management (env vars)
-│   ├── schemas.py             # Strict Pydantic v2 request/response models
+│   ├── config.py              # Pydantic Settings management (env vars, zero secrets)
+│   ├── schemas.py             # Strict Pydantic v2 request/response models with extra="forbid"
 │   ├── api/
 │   │   └── routes.py          # API route definitions (/health, /geocode, /assess, /simulate, /chat)
 │   ├── data/
@@ -66,17 +80,33 @@ saanssafe/
 │       ├── llm.py             # Gemini 2.5 Flash wrapper with schema validation & fallback
 │       └── safety.py          # Input sanitization, injection detection, output capping
 ├── docs/
-│   └── ARCHITECTURE.md        # Technical architecture documentation
-├── public/                    # Pure static frontend (no build step, no node_modules)
+│   ├── ARCHITECTURE.md        # Technical architecture documentation
+│   └── SUBMISSION_ANSWERS.md  # Ready-to-paste submission portal fields
+├── public/                    # Pure static frontend (zero build step, CSP-compliant)
+│   ├── js/                    # Decoupled ES Modules
+│   │   ├── dom.js             # XSS-safe DOM builder, selectors, animation & debounce
+│   │   ├── charts.js          # HTML5 Canvas AQI gauge, bar charts & ambient particle engine
+│   │   ├── components.js      # Component renderers (heat strip, timeline, hacks, card alternatives)
+│   │   ├── simulator.js       # What-If simulator engine, presets & dose calculations
+│   │   └── chat.js            # Grounded chat UI, markdown sanitizer & message lifecycle
+│   ├── app.js                 # High-level orchestrator module (<500 lines)
+│   ├── i18n.js                # Internationalization dictionary (en, hi, ta)
 │   ├── index.html             # Accessible, semantic UI with skip links & tabbed layout
-│   ├── styles.css             # Responsive design, dark mode, high contrast, WCAG 2.1 AA
-│   ├── app.js                 # Vanilla ES Module client with XSS-safe DOM builders
-│   └── i18n.js                # Internationalization dictionary (en, hi, ta)
-├── tests/                     # Comprehensive test suite (150+ tests, >90% coverage)
-├── pyproject.toml             # Ruff, pytest, and coverage configurations
-├── vercel.json                # Vercel serverless deployment & security routing
-├── requirements.txt           # Pinned production dependencies
-└── requirements-dev.txt       # Pinned developer/testing dependencies
+│   └── styles.css             # Responsive design, dark mode, high contrast, WCAG 2.1 AA
+├── tests/
+│   ├── js/                    # Automated Node.js unit tests (node --test)
+│   │   ├── api.test.js        # Serverless data contracts & fallback narrative tests
+│   │   └── simulator.test.js  # What-If math, dose equivalence, and sanitization tests
+│   ├── test_api.py            # API endpoint integration tests
+│   ├── test_risk_engine.py    # Risk engine unit tests
+│   ├── test_routine_planner.py# Routine planner tests
+│   ├── test_recommendations.py# Indoor hack and alternative matching tests
+│   ├── test_impact.py         # Dose and emission calculation tests
+│   ├── test_safety.py         # Prompt injection & input sanitization tests
+│   └── test_llm_fallback.py   # Gemini resilience fallback tests
+├── package.json               # NPM scripts, test suite configurations
+├── pyproject.toml             # PEP 621 metadata, Ruff linter, and Pytest coverage configs
+└── vercel.json                # Vercel serverless deployment & security routing
 ```
 
 ---
@@ -97,99 +127,30 @@ The personal risk score $R \in [0, 100]$ is computed deterministically without e
    $$\text{Base Score} \leftarrow \min\left(70, \text{Base Score} + \min\left(10, \frac{\Delta_{\text{peak}}}{300} \times 20\right)\right)$$
 
 3. **Vulnerability Multiplier** ($M_{\text{vuln}} \in [1.0, 1.6]$):
-   - Children (<12): $1.3$
-   - Elderly (65+): $1.25$
-   - Pregnancy: $1.3$
-   - Respiratory Conditions (Asthma/COPD): $1.5$
-   - Heart Conditions: $1.4$
-   $$M_{\text{vuln}} = \min(1.6, \max(1.0, m_1, m_2, \dots))$$
+   - Children (<12): $1.30$
+   - Elderly (>65): $1.25$
+   - Respiratory condition (Asthma/COPD): $1.35$
+   - Pregnancy: $1.25$
+   - Cardiac condition: $1.20$
 
-4. **Exposure Modifiers** ($E \in [-5, +20]$):
-   - Open-air commute (Walk, Cycle, Two-Wheeler, Auto): $+ \min(10, d_{\text{km}} \times 0.3)$
-   - Enclosed commute (Metro, Car with filter): $-2.0$
-   - Absence of air purifier: $+5.0$
-   - Biomass cooking: $+8.0$; LPG cooking: $+2.0$
-   - Morning outdoor exercise during inversion hours: $+5.0$
+4. **Exposure Modifiers** ($\Delta_{\text{exp}} \in [-15, +20]$):
+   - Cooking fuel: LPG $+3$, Biomass $+15$, Induction $-5$
+   - Commute mode: Two-wheeler $+8$, Open auto $+6$, Car $-2$, Metro $-5$, Bus $+2$, Walk $+5$
+   - HEPA Air Purifier: $-12$
+   - Single-glazed leaky windows: $+5$
 
-5. **Atmospheric Inversion Flag**:
-   Triggered if $\ge 2$ of:
-   - Wind speed $< 2.0\text{ m/s}$
-   - Boundary layer height $< 500\text{ m}$
-   - Relative humidity $> 70\%$
-   - Temperature $< 10^\circ\text{C}$
-   When triggered, an inversion bonus of $+8.0$ is added.
+5. **Atmospheric Stagnation Modifier** ($\Delta_{\text{stag}} \in [0, 10]$):
+   - Boundary layer height $< 300\text{m}$: $+4$
+   - Wind speed $< 1.5\text{ m/s}$: $+3$
+   - Relative humidity $> 75\%$: $+3$
 
-6. **Final Clamping & Categorization**:
-   $$\text{Raw Score} = (\text{Base Score} \times M_{\text{vuln}}) + E + (\text{Inversion Bonus})$$
-   $$\text{Risk Score} = \text{clamp}(0, 100, \text{Raw Score})$$
-
-| Score Range | Level | Hex Color | Icon |
-| :--- | :--- | :--- | :--- |
-| 0 – 20 | Low | `#00e400` | 🌿 |
-| 21 – 40 | Moderate | `#ffff00` | 😐 |
-| 41 – 60 | High | `#ff7e00` | ⚠️ |
-| 61 – 80 | Severe | `#8f3f97` | ☣️ |
-| 81 – 100 | Emergency | `#7e0023` | 💀 |
+$$\text{Final Score} = \text{clamp}\left(0, 100, (\text{Base Score} \times M_{\text{vuln}}) + \Delta_{\text{exp}} + \Delta_{\text{stag}}\right)$$
 
 ---
 
-### 3.2 Inhaled PM2.5 Dose & Carbon Impact Model (`app/services/impact.py`)
+## 4. Quality & Security Assurance
 
-#### Inhaled Daily Dose
-$$\text{Dose}_{\text{PM2.5}} (\mu\text{g}) = \sum_{e \in \text{Environments}} C_e \times \text{BR} \times t_e \times 10^{-3}$$
-
-Where:
-- $C_e$: PM2.5 concentration in microenvironment $e$ ($\mu\text{g/m}^3$)
-  - Indoor: $C_{\text{outdoor}} \times \text{Infiltration Factor}$
-  - Infiltration factor: $0.15$ (with HEPA purifier), $0.55$ (double glazed, no purifier), $0.75$ (single glazed, no purifier)
-  - Vehicle: $C_{\text{outdoor}} \times 0.5$
-  - Outdoor: $C_{\text{outdoor}}$
-- $\text{BR}$: Age-weighted breathing rate (L/min) based on WHO 2000 exposure factors:
-  - Children: $10.0\text{ L/min}$
-  - Adults: $12.0\text{ L/min}$
-  - Elderly: $10.0\text{ L/min}$
-- $t_e$: Minutes spent in microenvironment $e$ per day.
-
-#### Commute Emissions
-$$\text{CO}_2\text{e (g/week)} = d_{\text{one-way}} \times 2 \times \text{days/week} \times \text{Factor}_{\text{mode}}$$
-
-Emission Factors (gCO2e/km):
-- Car (ICE): $192.0$
-- Two-Wheeler (Motorcycle/Scooter): $72.0$
-- Auto-rickshaw: $65.0$
-- Bus: $38.0$
-- Metro: $15.0$
-- Walk / Bicycle: $0.0$
-
----
-
-## 4. Gemini GenAI Integration & Fallback Resilience
-
-SaansSafe uses the modern Google GenAI SDK (`google-genai`) with model `gemini-2.5-flash`:
-
-1. **Grounded Synthesis**:
-   - The AI receives strict, bounded JSON context generated by the deterministic engines.
-   - It is explicitly instructed never to hallucinate AQI values or offer unsolicited medical prescriptions.
-   - Structured JSON outputs are enforced using Gemini's native JSON mode.
-
-2. **Zero-Downtime Fallback Architecture**:
-   - If `GEMINI_API_KEY` is absent, API quota is exceeded, network timeouts occur, or invalid JSON is returned, the application seamlessly triggers `app/services/llm.py:fallback_assessment()`.
-   - The fallback generates high-quality localized templates in the requested language (English, Hindi, or Tamil).
-   - Responses explicitly carry the boolean flag `"ai_generated": false` to ensure transparency.
-
----
-
-## 5. Security & Privacy Blueprint
-
-- **Input Sanitization**: All free-form inputs (city search query, chat prompt) are scrubbed for prompt injection patterns (`ignore all previous instructions`, `<script>`, system prompt exfiltration).
-- **Network Boundaries & SSRF Guard**: Outbound HTTP requests through `httpx` validate target URLs against an explicit allowlist:
-  - `geocoding-api.open-meteo.com`
-  - `air-quality-api.open-meteo.com`
-  - `api.open-meteo.com`
-- **Rate Limiting**: In-memory sliding window rate limiter protects endpoints against volumetric abuse.
-- **Privacy-by-Design**:
-  - No health conditions, precise locations, or user queries are persisted to a database or external log.
-  - Geolocation coordinates are rounded to 2 decimal places before being used for caching.
-- **Strict CSP & XSS Protection**:
-  - Content Security Policy forbids `unsafe-inline` scripts.
-  - The frontend never assigns user or AI responses to `innerHTML`; all nodes are safely constructed via `document.createElement()` and `textContent`.
+- **Dual-Stack Automated Testing**: 152 Pytest unit/integration tests (92% coverage) + 14 native Node.js tests running in CI.
+- **Strict Linting & Standards**: PEP 621 compliant `pyproject.toml`, 100% Ruff passing with 0 warnings, JSDoc annotations throughout.
+- **XSS & CSP Immunity**: Pure DOM `textContent` and `createElement` builders — zero unescaped `innerHTML` injection paths.
+- **Resilience**: Deterministic offline fallbacks across all endpoints ensuring zero downtime even under quota exhaustions.

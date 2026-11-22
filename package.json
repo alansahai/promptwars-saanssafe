@@ -1,0 +1,24 @@
+{
+  "name": "saanssafe",
+  "version": "1.0.0",
+  "description": "AI-Powered Winter Smog Navigation Assistant for Urban Indian Families",
+  "type": "module",
+  "author": "Alan Sahai <alansahai123@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/js/*.test.js",
+    "lint:check": "node --check public/app.js api/*.js",
+    "check": "npm run lint:check && npm test"
+  },
+  "keywords": [
+    "air-quality",
+    "smog-navigation",
+    "gemini-2.5-flash",
+    "health-tech",
+    "urban-mobility",
+    "open-meteo"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
