@@ -34,6 +34,7 @@ dev = [
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
     "ruff>=0.8.0",
+    "mypy>=1.15.0",
 ]
 
 [tool.ruff]
@@ -72,3 +73,10 @@ omit = ["tests/*", "scripts/*"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = false
+
+[tool.mypy]
+python_version = "3.11"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+warn_unused_configs = true
+

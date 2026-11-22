@@ -36,6 +36,9 @@ jobs:
       - name: Lint with ruff
         run: ruff check .
 
+      - name: Static type check with mypy
+        run: mypy app tests
+
       - name: Run Python unit & integration tests with coverage
         env:
           GEMINI_API_KEY: ""

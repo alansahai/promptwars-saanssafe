@@ -14,16 +14,64 @@
 
 ---
 
-## 📖 Overview
+## 🎯 Chosen Vertical: [Challenge 6] Urban Air Quality Assistant
 
-During winter, major urban corridors across South Asia and industrial centers experience dangerous levels of fine particulate matter (PM2.5 / PM10) trapped by atmospheric thermal inversions. 
+### Problem Statement
+> **Challenge 6**: Create a GenAI-powered assistant that helps families and communities navigate severe winter smog and urban air pollution. The application should suggest low-emission daily routines, indoor air quality hacks, and sustainable alternatives tailored to their location and lifestyle, while clearly explaining the direct impact of their choices.
 
-While public air monitors publish city-wide AQI numbers, a single index cannot capture individual family risk:
-- A toddler breathing near floor level or an elderly grandparent faces compounded vulnerability.
-- An open two-wheeler commute incurs vastly higher respiratory exposure than travel in a filtered metro.
-- Indoor activities (cooking fuel, ventilation habits, filtration) dramatically alter daily inhaled dose.
+### Target Persona & Core Objective
+- **Target Audience**: Urban families (infants, school-age children, working commuters, asthmatics, and elderly grandparents) living in high-smog corridors (such as the Indo-Gangetic Plain and metro areas).
+- **Core Objective**: Transform abstract, city-wide AQI sensor readings into actionable, personalized protection. SaansSafe computes household-specific personal exposure, identifies safe ventilation windows, recommends high-impact zero/low-cost indoor hacks, models commute swaps, and simulates inhaled dose reductions.
 
-**SaansSafe** solves this by bridging real-time atmospheric meteorology with personalized household context. It translates raw sensor feeds into practical daily schedules, evidence-based indoor hacks, actionable commute swaps, and an interactive "What-If" exposure simulator.
+---
+
+## 🧠 Approach and Logic
+
+SaansSafe is engineered around a hybrid architectural principle: **Deterministic Scientific Computation + Grounded GenAI Synthesis**:
+
+1. **Deterministic Scientific Core (Zero Hallucination)**:
+   - **Personal Risk Engine**: Computes a 0–100 risk score combining US AQI, Indian CPCB NAQI, thermal inversion indicators (wind speed, boundary layer height, relative humidity), and vulnerability multipliers (children $\times 1.30$, elderly $\times 1.25$, asthma/COPD $\times 1.50$).
+   - **Hour-by-Hour Exposure Planner**: Scans 24-hour meteorological forecasts to determine optimal low-exposure windows for school runs, ventilation, and errands.
+   - **What-If Inhaled Dose Simulator**: Calculates daily inhaled PM2.5 dose ($\mu\text{g/day}$) using WHO 2000 age-differentiated respiratory volume equations ($V_{\text{rest}} \cdot t_{\text{rest}} + V_{\text{active}} \cdot t_{\text{active}}$) across home, transit, and workplace micro-environments.
+
+2. **Grounded GenAI Layer (Google Gemini 2.5 Flash)**:
+   - Utilizes the official `google-genai` SDK with strict JSON schema enforcement (`response_mime_type="application/json"`).
+   - Gemini receives only pre-computed, deterministic risk facts and outputs localized, empathetic narratives in English, Hindi (हिन्दी), and Tamil (தமிழ்).
+   - **Offline Resilience**: A rule-based fallback generator guarantees 100% operational uptime (`ai_generated: false`) if quota limits or network partitions occur.
+
+---
+
+## ⚙️ How the Solution Works
+
+```mermaid
+flowchart TD
+    A["User Inputs Location & Profile"] --> B["Parallel Open-Meteo Fetch (AQI + Weather)"]
+    B --> C["Deterministic Risk Engine (0-100 Score)"]
+    C --> D["Routine & Ventilation Planner"]
+    C --> E["Indoor Air Hacks Matching Engine"]
+    C --> F["Sustainable Transit Swaps Engine"]
+    C --> G["What-If Inhaled Dose Simulator"]
+    D & E & F & G --> H["Gemini 2.5 Flash Structured Narrative"]
+    H --> I["Trilingual Accessible UI (EN / HI / TA)"]
+```
+
+1. **Location & Household Profiling**: The user selects their city (or GPS geolocation) and specifies household demographics, commute modes, window types, cooking fuels, and budget tier.
+2. **Parallel Telemetry Ingestion**: The system queries Open-Meteo air quality and weather APIs concurrently using a 15-minute coordinate-rounded cache.
+3. **Risk & Timeline Evaluation**: The engine assesses whether a thermal inversion traps smog, generates safe activity directives, and builds a 24-hour routine.
+4. **Interactive What-If Simulation**: Users toggle real-time interventions (HEPA purifiers, induction cooktops, metro commute, hybrid WFH) and immediately see before-and-after inhaled doses and carbon savings.
+5. **Conversational Assistant**: Grounded chat allows families to ask follow-up questions with medical emergency escalation (dial 112) and prompt injection guards.
+
+---
+
+## 📌 Assumptions Made
+
+1. **Inhaled Dosimetry**: Based on WHO 2000 human respiration parameters: children inhale $\approx 10\text{ m}^3\text{/day}$, adults inhale $\approx 15\text{ m}^3\text{/day}$, and seniors inhale $\approx 13\text{ m}^3\text{/day}$.
+2. **Micro-Environment Infiltration**:
+   - Closed rooms with single-pane windows: $0.70$ infiltration ratio without purifiers.
+   - Rooms with true HEPA H13 purifiers: $0.20$ infiltration ratio (slashing indoor exposure by 50–75%).
+   - Metro AC carriages: $0.35$ ambient infiltration vs. open road two-wheelers ($1.00$).
+3. **Health Toxicity Equivalence**: Berkeley Earth benchmark equates $22\,\mu\text{g/m}^3$ of ambient PM2.5 to roughly $1$ cigarette smoked per day.
+4. **Transport Carbon Emission Factors**: Derived from MoRTH & IPCC AR6 urban transit indices (Petrol Car: $192\text{ gCO}_2\text{e/km}$, Two-Wheeler: $45\text{ gCO}_2\text{e/km}$, Metro Train: $25\text{ gCO}_2\text{e/km}$, Electric Bus: $25\text{ gCO}_2\text{e/km}$, Bicycle: $0$).
 
 ---
 
@@ -246,11 +294,16 @@ The application is structured for instant deployment to serverless platforms (e.
 ```
 promptwars-saanssafe/
 ├── api/
-│   └── index.py              # ASGI entrypoint for serverless deployment
+│   ├── _lib/                 # Modular serverless utilities (catalog, meteo, gemini)
+│   ├── assess.js             # Vercel serverless assessment endpoint
+│   ├── chat.js               # Vercel serverless chat endpoint
+│   ├── geocode.js            # Vercel serverless geocoding endpoint
+│   ├── simulate.js           # Vercel serverless What-If simulation endpoint
+│   └── index.py              # ASGI FastAPI serverless entrypoint
 ├── app/
-│   ├── main.py               # FastAPI application factory & middleware
+│   ├── main.py               # FastAPI application factory & security middleware
 │   ├── config.py             # Pydantic-settings configuration
-│   ├── schemas.py            # Strict Pydantic v2 data models
+│   ├── schemas.py            # Strict Pydantic v2 data models (extra="forbid")
 │   ├── api/
 │   │   └── routes.py         # REST API route handlers
 │   ├── services/
@@ -266,21 +319,27 @@ promptwars-saanssafe/
 │       ├── measures.py       # Catalogue of indoor air interventions
 │       └── emission_factors.py # Transport emission & breathing volume factors
 ├── public/
-│   ├── index.html            # Semantic single-page application
-│   ├── styles.css            # Atmospheric stylesheet with dark/light mode
-│   ├── app.js                # ES module application logic
-│   └── i18n.js               # Localization strings (EN, HI, TA)
-├── tests/                    # 152 automated test suites
-├── scripts/
-│   └── smoke_test.py         # Deployment verification utility
+│   ├── js/                   # Modular client ES modules
+│   │   ├── dom.js            # XSS-safe DOM builder, value animators, and helpers
+│   │   ├── charts.js         # Canvas gauge, bar chart, and ambient particle engine
+│   │   ├── components.js     # Heat strip, timeline, hacks, and card alternatives
+│   │   ├── simulator.js      # What-If simulator engine and preset ribbons
+│   │   └── chat.js           # Grounded chat controller and markdown sanitizer
+│   ├── app.js                # Core frontend orchestrator
+│   ├── index.html            # Semantic accessible single-page application
+│   ├── styles.css            # Responsive stylesheet with dark/light/contrast modes
+│   └── i18n.js               # Localization dictionary (EN, HI, TA)
+├── tests/
+│   ├── js/                   # Node.js automated test runner (14 tests)
+│   └── test_*.py             # Python Pytest test suites (152 tests, 92% coverage)
 ├── docs/
 │   ├── ARCHITECTURE.md       # Detailed technical design document
 │   └── SUBMISSION_ANSWERS.md # Reference guide
 ├── vercel.json               # Serverless routing & security header config
+├── package.json              # NPM scripts and Node dependencies
 ├── requirements.txt          # Production dependencies
 ├── requirements-dev.txt      # Development & testing dependencies
-├── pyproject.toml            # Tooling configuration (Ruff & Pytest)
-├── Makefile                  # Developer workflow targets
+├── pyproject.toml            # Tooling configuration (Ruff, Mypy & Pytest)
 └── README.md
 ```
 

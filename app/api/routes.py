@@ -203,12 +203,15 @@ async def assess(
     }
 
     # 8. Gemini narrative (with fallback)
-    narrative = await asyncio.to_thread(
+    ai_narrative = await asyncio.to_thread(
         llm.generate_assessment_narrative, gemini_context, language=profile.language
     )
-    ai_generated = narrative is not None
-    if not ai_generated:
-        narrative = llm.fallback_assessment_narrative(gemini_context, language=profile.language)
+    ai_generated = ai_narrative is not None
+    narrative = (
+        ai_narrative
+        if ai_narrative is not None
+        else llm.fallback_assessment_narrative(gemini_context, language=profile.language)
+    )
 
     return AssessmentResponse(
         ai_generated=ai_generated,
