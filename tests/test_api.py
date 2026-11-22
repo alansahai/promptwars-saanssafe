@@ -361,3 +361,24 @@ def test_rate_limit_triggers(client):
 
     # We just verify the middleware exists and responds; exact 429 depends on timing
     assert 200 in statuses or 429 in statuses
+
+
+@pytest.mark.asyncio
+async def test_air_data_ssrf_protection():
+    """Verify SSRF guard blocks requests to hosts not in allowlist."""
+    with pytest.raises(ValueError, match="not in allowlist"):
+        await _air_data_module._safe_get("https://malicious-internal-server.local/api", {})
+
+
+def test_air_data_cache_ttl_and_eviction():
+    """Verify TTL expiry and eviction mechanics in cache."""
+    _air_data_module._cache.clear()
+    key = _air_data_module._cache_key("test_key")
+    _air_data_module._cache_set(key, {"value": 42})
+    assert _air_data_module._cache_get(key) == {"value": 42}
+
+    # Simulate expired TTL
+    ts, val = _air_data_module._cache[key]
+    _air_data_module._cache[key] = (ts - 10000.0, val)
+    assert _air_data_module._cache_get(key) is None
+

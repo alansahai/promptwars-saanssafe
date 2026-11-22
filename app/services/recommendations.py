@@ -16,6 +16,8 @@ from app.schemas import HouseholdProfile
 SUSTAINABLE_ALTERNATIVES: list[dict] = [
     {
         "id": "car_to_metro",
+        "category": "transit",
+        "icon": "🚇",
         "title": "Switch daily car commute to metro/rail",
         "description": (
             "Metro emits ~25 gCO2e/km vs ~192 gCO2e/km for a petrol car (single occupant). "
@@ -26,11 +28,15 @@ SUSTAINABLE_ALTERNATIVES: list[dict] = [
         "to_mode": "metro",
         "exposure_change_pct": -40.0,  # estimated reduction in commute PM2.5 dose
         "emission_change_gco2e_per_km": -167.0,  # 192 - 25
+        "monthly_savings_inr": 2800,
         "community_note": "Every car switched to metro removes ~192 gCO2e/km from road emissions.",
-        "effort": "medium",
+        "effort": "Easy",
+        "sim_action_id": "switch_commute_to_metro",
     },
     {
         "id": "two_wheeler_to_bus",
+        "category": "transit",
+        "icon": "🚌",
         "title": "Switch two-wheeler commute to bus",
         "description": (
             "City buses emit ~68 gCO2e/km per passenger vs ~55 gCO2e/km for a two-wheeler — "
@@ -41,11 +47,15 @@ SUSTAINABLE_ALTERNATIVES: list[dict] = [
         "to_mode": "bus",
         "exposure_change_pct": -20.0,
         "emission_change_gco2e_per_km": 13.0,  # slight increase per pax
+        "monthly_savings_inr": 1200,
         "community_note": "Shared transport reduces total road vehicles and urban PM2.5.",
-        "effort": "medium",
+        "effort": "Easy",
+        "sim_action_id": "switch_commute_to_bus",
     },
     {
         "id": "short_trips_cycle",
+        "category": "transit",
+        "icon": "🚲",
         "title": "Cycle or walk for trips under 3 km",
         "description": (
             "For short urban trips (under 3 km), cycling and walking produce zero emissions "
@@ -54,13 +64,17 @@ SUSTAINABLE_ALTERNATIVES: list[dict] = [
         ),
         "from_modes": ["car", "two_wheeler", "auto"],
         "to_mode": "cycle",
-        "exposure_change_pct": 10.0,  # slight increase (open air) on short trips
-        "emission_change_gco2e_per_km": -192.0,  # vs car
+        "exposure_change_pct": -15.0,  # short trip bypass
+        "emission_change_gco2e_per_km": -120.0,  # vs car
+        "monthly_savings_inr": 800,
         "community_note": "Zero tailpipe emissions; also reduces traffic congestion.",
-        "effort": "easy",
+        "effort": "Easy",
+        "sim_action_id": "switch_commute_to_cycle",
     },
     {
         "id": "carpool",
+        "category": "transit",
+        "icon": "🚗",
         "title": "Start or join a carpool",
         "description": (
             "Sharing a car with 2 others halves your per-person CO2e. "
@@ -71,11 +85,15 @@ SUSTAINABLE_ALTERNATIVES: list[dict] = [
         "to_mode": "car",
         "exposure_change_pct": 0.0,
         "emission_change_gco2e_per_km": -96.0,  # 192 / 2 saved
+        "monthly_savings_inr": 1500,
         "community_note": "Halving cars on the road directly reduces local PM2.5 and NO2.",
-        "effort": "medium",
+        "effort": "Medium",
+        "sim_action_id": "",
     },
     {
         "id": "biomass_to_lpg",
+        "category": "cooking",
+        "icon": "🔥",
         "title": "Switch from biomass to LPG cooking",
         "description": (
             "Biomass cooking produces 15–30× more indoor PM2.5 than LPG. "
@@ -87,11 +105,15 @@ SUSTAINABLE_ALTERNATIVES: list[dict] = [
         "to_fuel": "lpg",
         "exposure_change_pct": -70.0,
         "emission_change_gco2e_per_km": 0.0,
+        "monthly_savings_inr": 600,
         "community_note": "Reduces neighbourhood biomass smoke, a major winter smog contributor.",
-        "effort": "medium",
+        "effort": "Medium",
+        "sim_action_id": "switch_to_induction",
     },
     {
         "id": "lpg_to_induction",
+        "category": "cooking",
+        "icon": "🍳",
         "title": "Switch from LPG to induction cooking",
         "description": (
             "Induction eliminates combustion entirely, removing all indoor PM2.5 from cooking. "
@@ -102,11 +124,15 @@ SUSTAINABLE_ALTERNATIVES: list[dict] = [
         "to_fuel": "induction",
         "exposure_change_pct": -25.0,
         "emission_change_gco2e_per_km": 0.0,
+        "monthly_savings_inr": 450,
         "community_note": "Reduces natural gas demand; local air quality improves.",
-        "effort": "medium",
+        "effort": "Low-Cost",
+        "sim_action_id": "switch_to_induction",
     },
     {
         "id": "no_waste_burning",
+        "category": "home",
+        "icon": "🍂",
         "title": "Stop burning garden waste and garbage",
         "description": (
             "Burning waste — plastic, leaves, garden debris — produces extremely high "
@@ -118,11 +144,15 @@ SUSTAINABLE_ALTERNATIVES: list[dict] = [
         "to_fuel": "",
         "exposure_change_pct": -15.0,
         "emission_change_gco2e_per_km": 0.0,
+        "monthly_savings_inr": 0,
         "community_note": "One burning pile can affect an entire neighbourhood's AQI for hours.",
-        "effort": "easy",
+        "effort": "Zero-Cost",
+        "sim_action_id": "",
     },
     {
         "id": "work_from_home",
+        "category": "work",
+        "icon": "💻",
         "title": "Work from home 1–2 days per week",
         "description": (
             "Eliminating commute days directly reduces your CO2e and PM2.5 exposure. "
@@ -132,9 +162,11 @@ SUSTAINABLE_ALTERNATIVES: list[dict] = [
         "from_modes": ["car", "two_wheeler", "auto", "bus"],
         "to_mode": "work_from_home",
         "exposure_change_pct": -30.0,
-        "emission_change_gco2e_per_km": 0.0,
+        "emission_change_gco2e_per_km": -76.0,
+        "monthly_savings_inr": 1800,
         "community_note": "Fewer vehicles during peak hours reduces congestion-related PM2.5.",
-        "effort": "easy",
+        "effort": "Zero-Cost",
+        "sim_action_id": "work_from_home_2_days",
     },
 ]
 
@@ -202,12 +234,16 @@ def get_sustainable_alternatives(
         results.append(
             {
                 "id": alt["id"],
+                "category": alt.get("category", "transit"),
+                "icon": alt.get("icon", "🌱"),
                 "title": alt["title"],
                 "description": alt["description"],
                 "exposure_change_pct": alt.get("exposure_change_pct", 0.0),
                 "emission_change_gco2e_per_km": alt.get("emission_change_gco2e_per_km", 0.0),
+                "monthly_savings_inr": alt.get("monthly_savings_inr", 0),
                 "community_note": alt.get("community_note", ""),
-                "effort": alt.get("effort", "medium"),
+                "effort": alt.get("effort", "Easy"),
+                "sim_action_id": alt.get("sim_action_id", ""),
             }
         )
     return results

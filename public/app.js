@@ -4,9 +4,9 @@
  * Fully modular ES architecture, CSP-compliant, zero inline scripts.
  */
 
-import { applyTranslations, getLang, setLang, t } from "./i18n.js";
-import { $, $$, el, show, hide, animateValue, debounce } from "./js/dom.js";
-import { animateGauge, drawGauge, initAmbientCanvas } from "./js/charts.js";
+import { applyTranslations, getLang, setLang, t } from "./i18n.js?v=20261122_v4_ultracard";
+import { $, $$, el, show, hide, animateValue, debounce } from "./js/dom.js?v=20261122_v4_ultracard";
+import { animateGauge, drawGauge, initAmbientCanvas } from "./js/charts.js?v=20261122_v4_ultracard";
 import {
   renderHeatStrip,
   renderTimeline,
@@ -15,9 +15,9 @@ import {
   renderRiskBadge,
   renderReasons,
   renderTips,
-} from "./js/components.js";
-import { renderSimActions, runSimulation } from "./js/simulator.js";
-import { initChat, sendChat } from "./js/chat.js";
+} from "./js/components.js?v=20261122_v4_ultracard";
+import { renderSimActions, runSimulation } from "./js/simulator.js?v=20261122_v4_ultracard";
+import { initChat, sendChat } from "./js/chat.js?v=20261122_v4_ultracard";
 
 // ===== CONSTANTS =====
 const API = {

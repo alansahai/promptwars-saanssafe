@@ -7,6 +7,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { SIM_ACTIONS } from "../../public/js/simulator.js";
 import { formatMarkdown } from "../../public/js/chat.js";
+import { STRINGS, t, setLang } from "../../public/i18n.js";
 
 describe("Simulator Actions Contract", () => {
   it("should define 6 verified simulator interventions", () => {
@@ -66,3 +67,25 @@ describe("Markdown Sanitization & Formatting", () => {
     assert.ok(formatted.includes("<li>Wear N95</li>"));
   });
 });
+
+describe("Trilingual Localization & Accessibility Parity", () => {
+  it("should support English, Hindi, and Tamil dictionaries", () => {
+    assert.ok(STRINGS.en, "Must support English");
+    assert.ok(STRINGS.hi, "Must support Hindi");
+    assert.ok(STRINGS.ta, "Must support Tamil");
+  });
+
+  it("should have over 40 translation keys in each language dictionary", () => {
+    assert.ok(Object.keys(STRINGS.en).length >= 40);
+    assert.ok(Object.keys(STRINGS.hi).length >= 40);
+    assert.ok(Object.keys(STRINGS.ta).length >= 40);
+  });
+
+  it("should fallback to English for unknown keys in regional languages", () => {
+    setLang("ta");
+    assert.strictEqual(t("location_title"), STRINGS.ta.location_title);
+    assert.strictEqual(t("non_existent_key_xyz"), "non_existent_key_xyz");
+    setLang("en");
+  });
+});
+

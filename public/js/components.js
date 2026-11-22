@@ -4,7 +4,7 @@
  * Uses safe DOM builders (never innerHTML for text/data).
  */
 
-import { $, $$, el } from "./dom.js";
+import { $, $$, el } from "./dom.js?v=20261122_v4_ultracard";
 
 let _allAlternatives = [];
 
@@ -133,24 +133,46 @@ export function renderAlternatives(alts, onTestSimulator) {
     card.appendChild(el("h3", a.title, { class: "card-title" }));
     card.appendChild(el("p", a.description, { class: "card-desc" }));
 
-    // Key Impact Metrics Grid
+    // Key Impact Metrics Grid (3-column uniform dashboard)
     const metricsGrid = el("div", null, { class: "alt-metrics-grid" });
     if (a.exposure_change_pct < 0) {
       const m1 = el("div", null, { class: "alt-metric" });
       m1.appendChild(el("span", "Personal Dose Cut", { class: "alt-m-label" }));
       m1.appendChild(el("span", `⬇ ${Math.abs(a.exposure_change_pct)}%`, { class: "alt-m-val text-success" }));
       metricsGrid.appendChild(m1);
+    } else {
+      const m1 = el("div", null, { class: "alt-metric" });
+      m1.appendChild(el("span", "Exposure Shield", { class: "alt-m-label" }));
+      m1.appendChild(el("span", "Active", { class: "alt-m-val text-success" }));
+      metricsGrid.appendChild(m1);
     }
+
     if (a.emission_change_gco2e_per_km < 0) {
       const m2 = el("div", null, { class: "alt-metric" });
       m2.appendChild(el("span", "Carbon Saved", { class: "alt-m-label" }));
       m2.appendChild(el("span", `${a.emission_change_gco2e_per_km.toFixed(0)} g/km`, { class: "alt-m-val text-accent" }));
       metricsGrid.appendChild(m2);
+    } else if (a.category === "home" || a.id?.includes("purifier") || a.id?.includes("waste")) {
+      const m2 = el("div", null, { class: "alt-metric" });
+      m2.appendChild(el("span", "Indoor Filtration", { class: "alt-m-label" }));
+      m2.appendChild(el("span", "H13 Pure", { class: "alt-m-val text-accent" }));
+      metricsGrid.appendChild(m2);
+    } else {
+      const m2 = el("div", null, { class: "alt-metric" });
+      m2.appendChild(el("span", "Combustion Soot", { class: "alt-m-label" }));
+      m2.appendChild(el("span", "Zero Smoke", { class: "alt-m-val text-accent" }));
+      metricsGrid.appendChild(m2);
     }
+
     if (a.monthly_savings_inr) {
       const m3 = el("div", null, { class: "alt-metric" });
       m3.appendChild(el("span", "Est. Fuel Saved", { class: "alt-m-label" }));
       m3.appendChild(el("span", `~₹${a.monthly_savings_inr}/mo`, { class: "alt-m-val text-warning" }));
+      metricsGrid.appendChild(m3);
+    } else {
+      const m3 = el("div", null, { class: "alt-metric" });
+      m3.appendChild(el("span", "Effort Level", { class: "alt-m-label" }));
+      m3.appendChild(el("span", a.effort || "Recommended", { class: "alt-m-val text-warning" }));
       metricsGrid.appendChild(m3);
     }
     card.appendChild(metricsGrid);

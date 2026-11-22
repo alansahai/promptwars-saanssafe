@@ -126,6 +126,184 @@ def _mask_recommendation(aqi: float) -> str:
     return "N95/FFP2 mask essential for all outdoor trips. Minimise outdoor time."
 
 
+def _plan_morning_exercise(
+    hourly: list[HourlyAQI],
+    profile: HouseholdProfile,
+) -> TimelineTask | None:
+    """Determine morning exercise recommendation based on 05:00-10:00 AQI."""
+    if not profile.morning_walker_jogger:
+        return None
+    best_morning, best_aqi = _find_best_window(hourly, 5, 10)
+    if best_aqi <= _SAFE_AQI:
+        return TimelineTask(
+            time=f"{best_morning:02d}:00",
+            task=f"Morning walk/jog — Best window (AQI {best_aqi:.0f})",
+            reason=f"AQI is lowest at {best_morning}:00. Safe for outdoor exercise.",
+            icon="🏃",
+            priority=1,
+        )
+    if best_aqi <= _CAUTION_AQI:
+        return TimelineTask(
+            time=f"{best_morning:02d}:00",
+            task=f"Short morning walk with N95 mask (AQI {best_aqi:.0f})",
+            reason="AQI is moderate. Keep it brief; wear an N95/FFP2 mask.",
+            icon="😷",
+            priority=2,
+        )
+    return TimelineTask(
+        time="06:00",
+        task="Skip outdoor jog — do indoor stretching or yoga instead",
+        reason=(
+            f"AQI remains high all morning (best: {best_aqi:.0f}). "
+            "Outdoor exercise significantly increases PM2.5 inhaled dose."
+        ),
+        icon="🧘",
+        priority=1,
+    )
+
+
+def _plan_school_run(
+    hourly: list[HourlyAQI],
+    profile: HouseholdProfile,
+) -> TimelineTask | None:
+    """Determine school-run timing and protection directives."""
+    if not profile.school_run:
+        return None
+    best_school, school_aqi = _find_best_window(hourly, 7, 10)
+    mask_note = _mask_recommendation(school_aqi)
+    icon = "🎒" if school_aqi <= _SAFE_AQI else "😷"
+    return TimelineTask(
+        time=f"{best_school:02d}:00",
+        task=f"School run — aim for {best_school}:00 (AQI {school_aqi:.0f})",
+        reason=f"Lowest AQI during school-run hours. {mask_note}",
+        icon=icon,
+        priority=1,
+    )
+
+
+def _plan_commute(
+    hourly: list[HourlyAQI],
+    profile: HouseholdProfile,
+) -> TimelineTask | None:
+    """Determine commute departure window and mask advice."""
+    if profile.commute_days_per_week <= 0 or profile.commute_distance_km <= 0:
+        return None
+    best_commute, commute_aqi = _find_best_window(hourly, 7, 11)
+    mask_note = _mask_recommendation(commute_aqi)
+    icon = "🚌" if commute_aqi <= _SAFE_AQI else "😷"
+    return TimelineTask(
+        time=f"{best_commute:02d}:00",
+        task=f"Commute window — {profile.commute_mode} at {best_commute}:00 (AQI {commute_aqi:.0f})",
+        reason=f"Best commute window for {profile.commute_mode}. {mask_note}",
+        icon=icon,
+        priority=1,
+    )
+
+
+def _plan_ventilation(hourly: list[HourlyAQI]) -> TimelineTask:
+    """Determine the optimal ventilation schedule for airing out indoor quarters."""
+    best_vent, vent_aqi = _find_best_window(hourly, 11, 16)
+    if vent_aqi <= _SAFE_AQI:
+        return TimelineTask(
+            time=f"{best_vent:02d}:00",
+            task=f"Ventilate home — open windows 1–2 hrs (AQI {vent_aqi:.0f})",
+            reason="AQI at its lowest midday. Use this window to flush indoor air.",
+            icon="🪟",
+            priority=2,
+        )
+    if vent_aqi <= _CAUTION_AQI:
+        return TimelineTask(
+            time=f"{best_vent:02d}:00",
+            task=f"Brief ventilation only — 20 min max (AQI {vent_aqi:.0f})",
+            reason="AQI moderate midday. Brief ventilation better than none; close windows after.",
+            icon="🪟",
+            priority=2,
+        )
+    return TimelineTask(
+        time="12:00",
+        task="Keep windows closed all day — AQI too high to ventilate",
+        reason=f"Best midday AQI {vent_aqi:.0f} — above safe threshold for ventilation.",
+        icon="🔒",
+        priority=1,
+    )
+
+
+def _plan_evening_inversion(
+    hourly: list[HourlyAQI],
+    profile: HouseholdProfile,
+) -> TimelineTask | None:
+    """Determine evening smog peak countermeasures."""
+    worst_evening, worst_aqi = _find_worst_window(hourly, 17, 22)
+    if worst_aqi <= _SAFE_AQI:
+        return None
+    purifier_task = (
+        "Run air purifier on HIGH during evening inversion"
+        if profile.has_purifier
+        else "Close all windows; consider a DIY box-fan HEPA filter"
+    )
+    return TimelineTask(
+        time=f"{worst_evening:02d}:00",
+        task=f"{purifier_task} (AQI peaks ~{worst_aqi:.0f})",
+        reason="Evening traffic and inversion causes PM2.5 spikes. Protect indoor air quality.",
+        icon="💨",
+        priority=1,
+    )
+
+
+def _plan_kids_play(
+    hourly: list[HourlyAQI],
+    profile: HouseholdProfile,
+) -> TimelineTask | None:
+    """Determine outdoor afternoon play guidelines for children."""
+    if profile.infants_children <= 0 and not profile.school_run:
+        return None
+    best_play, play_aqi = _find_best_window(hourly, 14, 18)
+    icon = "🧒" if play_aqi <= _SAFE_AQI else "⚠️"
+    play_advice = (
+        f"Outdoor play OK at {best_play}:00 (AQI {play_aqi:.0f})"
+        if play_aqi <= _SAFE_AQI
+        else f"Limit outdoor play — AQI {play_aqi:.0f}. Indoor activities preferred"
+    )
+    return TimelineTask(
+        time=f"{best_play:02d}:00",
+        task=play_advice,
+        reason=(
+            "Children breathe more air per body weight. Outdoor play should be "
+            "scheduled during the best AQI window of the afternoon."
+        ),
+        icon=icon,
+        priority=2,
+    )
+
+
+def _plan_bedtime(
+    hourly: list[HourlyAQI],
+    profile: HouseholdProfile,
+) -> TimelineTask:
+    """Determine night-time indoor air shielding guidelines."""
+    night_hours = [h for h in hourly if h.hour >= 22 or h.hour < 6]
+    night_avg = (
+        sum(h.aqi for h in night_hours) / max(1, len(night_hours))
+        if night_hours
+        else 100.0
+    )
+    if profile.has_purifier:
+        return TimelineTask(
+            time="22:00",
+            task="Run purifier in bedroom overnight on medium setting",
+            reason=f"Night AQI avg {night_avg:.0f}. Overnight is your longest exposure period.",
+            icon="😴",
+            priority=2,
+        )
+    return TimelineTask(
+        time="22:00",
+        task="Keep bedroom windows closed overnight; use wet towel at door gaps if AQI > 150",
+        reason=f"Night AQI avg {night_avg:.0f}. Sleep is your longest continuous exposure.",
+        icon="🛏️",
+        priority=2,
+    )
+
+
 def build_daily_routine(
     hourly: list[HourlyAQI],
     profile: HouseholdProfile,
@@ -139,175 +317,19 @@ def build_daily_routine(
     Returns:
         List of TimelineTask items (up to ~8) ordered by time.
     """
-    tasks: list[TimelineTask] = []
-
     if not hourly:
-        return tasks
+        return []
 
-    sum(h.aqi for h in hourly[:6]) / max(1, min(6, len(hourly)))
+    candidate_tasks: list[TimelineTask | None] = [
+        _plan_morning_exercise(hourly, profile),
+        _plan_school_run(hourly, profile),
+        _plan_commute(hourly, profile),
+        _plan_ventilation(hourly),
+        _plan_evening_inversion(hourly, profile),
+        _plan_kids_play(hourly, profile),
+        _plan_bedtime(hourly, profile),
+    ]
 
-    # --- Morning exercise window ---
-    if profile.morning_walker_jogger:
-        best_morning, best_aqi = _find_best_window(hourly, 5, 10)
-        if best_aqi <= _SAFE_AQI:
-            tasks.append(
-                TimelineTask(
-                    time=f"{best_morning:02d}:00",
-                    task=f"Morning walk/jog — Best window (AQI {best_aqi:.0f})",
-                    reason=f"AQI is lowest at {best_morning}:00. Safe for outdoor exercise.",
-                    icon="🏃",
-                    priority=1,
-                )
-            )
-        elif best_aqi <= _CAUTION_AQI:
-            tasks.append(
-                TimelineTask(
-                    time=f"{best_morning:02d}:00",
-                    task=f"Short morning walk with N95 mask (AQI {best_aqi:.0f})",
-                    reason="AQI is moderate. Keep it brief; wear an N95/FFP2 mask.",
-                    icon="😷",
-                    priority=2,
-                )
-            )
-        else:
-            tasks.append(
-                TimelineTask(
-                    time="06:00",
-                    task="Skip outdoor jog — do indoor stretching or yoga instead",
-                    reason=f"AQI remains high all morning (best: {best_aqi:.0f}). Outdoor exercise significantly increases PM2.5 inhaled dose.",
-                    icon="🧘",
-                    priority=1,
-                )
-            )
-
-    # --- School run ---
-    if profile.school_run:
-        best_school, school_aqi = _find_best_window(hourly, 7, 10)
-        mask_note = _mask_recommendation(school_aqi)
-        icon = "🎒" if school_aqi <= _SAFE_AQI else "😷"
-        tasks.append(
-            TimelineTask(
-                time=f"{best_school:02d}:00",
-                task=f"School run — aim for {best_school}:00 (AQI {school_aqi:.0f})",
-                reason=f"Lowest AQI during school-run hours. {mask_note}",
-                icon=icon,
-                priority=1,
-            )
-        )
-
-    # --- Commute ---
-    if profile.commute_days_per_week > 0 and profile.commute_distance_km > 0:
-        best_commute, commute_aqi = _find_best_window(hourly, 7, 11)
-        mask_note = _mask_recommendation(commute_aqi)
-        icon = "🚌" if commute_aqi <= _SAFE_AQI else "😷"
-        tasks.append(
-            TimelineTask(
-                time=f"{best_commute:02d}:00",
-                task=f"Commute window — {profile.commute_mode} at {best_commute}:00 (AQI {commute_aqi:.0f})",
-                reason=f"Best commute window for {profile.commute_mode}. {mask_note}",
-                icon=icon,
-                priority=1,
-            )
-        )
-
-    # --- Ventilation window ---
-    best_vent, vent_aqi = _find_best_window(hourly, 11, 16)
-    if vent_aqi <= _SAFE_AQI:
-        tasks.append(
-            TimelineTask(
-                time=f"{best_vent:02d}:00",
-                task=f"Ventilate home — open windows 1–2 hrs (AQI {vent_aqi:.0f})",
-                reason="AQI at its lowest midday. Use this window to flush indoor air.",
-                icon="🪟",
-                priority=2,
-            )
-        )
-    elif vent_aqi <= _CAUTION_AQI:
-        tasks.append(
-            TimelineTask(
-                time=f"{best_vent:02d}:00",
-                task=f"Brief ventilation only — 20 min max (AQI {vent_aqi:.0f})",
-                reason="AQI moderate midday. Brief ventilation better than none; close windows after.",
-                icon="🪟",
-                priority=2,
-            )
-        )
-    else:
-        tasks.append(
-            TimelineTask(
-                time="12:00",
-                task="Keep windows closed all day — AQI too high to ventilate",
-                reason=f"Best midday AQI {vent_aqi:.0f} — above safe threshold for ventilation.",
-                icon="🔒",
-                priority=1,
-            )
-        )
-
-    # --- Evening purifier boost ---
-    worst_evening, worst_aqi = _find_worst_window(hourly, 17, 22)
-    if worst_aqi > _SAFE_AQI:
-        purifier_task = (
-            "Run air purifier on HIGH during evening inversion"
-            if profile.has_purifier
-            else "Close all windows; consider a DIY box-fan HEPA filter"
-        )
-        tasks.append(
-            TimelineTask(
-                time=f"{worst_evening:02d}:00",
-                task=f"{purifier_task} (AQI peaks ~{worst_aqi:.0f})",
-                reason="Evening traffic and inversion causes PM2.5 spikes. Protect indoor air quality.",
-                icon="💨",
-                priority=1,
-            )
-        )
-
-    # --- Outdoor kids play ---
-    if profile.infants_children > 0 or profile.school_run:
-        best_play, play_aqi = _find_best_window(hourly, 14, 18)
-        icon = "🧒" if play_aqi <= _SAFE_AQI else "⚠️"
-        play_advice = (
-            f"Outdoor play OK at {best_play}:00 (AQI {play_aqi:.0f})"
-            if play_aqi <= _SAFE_AQI
-            else f"Limit outdoor play — AQI {play_aqi:.0f}. Indoor activities preferred"
-        )
-        tasks.append(
-            TimelineTask(
-                time=f"{best_play:02d}:00",
-                task=play_advice,
-                reason=(
-                    "Children breathe more air per body weight. Outdoor play should be "
-                    "scheduled during the best AQI window of the afternoon."
-                ),
-                icon=icon,
-                priority=2,
-            )
-        )
-
-    # --- Bedtime purifier ---
-    night_avg = sum(h.aqi for h in hourly if h.hour >= 22 or h.hour < 6) / max(
-        1, sum(1 for h in hourly if h.hour >= 22 or h.hour < 6)
-    )
-    if profile.has_purifier:
-        tasks.append(
-            TimelineTask(
-                time="22:00",
-                task="Run purifier in bedroom overnight on medium setting",
-                reason=f"Night AQI avg {night_avg:.0f}. Overnight is your longest exposure period.",
-                icon="😴",
-                priority=2,
-            )
-        )
-    else:
-        tasks.append(
-            TimelineTask(
-                time="22:00",
-                task="Keep bedroom windows closed overnight; use wet towel at door gaps if AQI > 150",
-                reason=f"Night AQI avg {night_avg:.0f}. Sleep is your longest continuous exposure.",
-                icon="🛏️",
-                priority=2,
-            )
-        )
-
-    # Sort by time
-    tasks.sort(key=lambda t: t["time"])
+    tasks: list[TimelineTask] = [t for t in candidate_tasks if t is not None]
+    tasks.sort(key=lambda item: item["time"])
     return tasks

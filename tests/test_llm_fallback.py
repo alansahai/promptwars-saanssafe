@@ -168,3 +168,72 @@ def test_chat_severe_symptoms_escalate(message):
         assert "112" in result or "emergency" in result.lower()
         # Gemini should NOT have been called
         mock_client.models.generate_content.assert_not_called()
+
+
+def test_generate_narrative_success():
+    """Verify successful parsing when Gemini returns structured JSON."""
+    with patch("app.services.llm._client_singleton") as mock_client_fn:
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.text = (
+            '{"headline": "High Smog Alert", "summary": "Pollution is elevated.", '
+            '"family_tips": ["Stay indoors"], "kid_and_elder_notes": ["Keep kids inside"], '
+            '"motivational_nudge": "Stay safe!"}'
+        )
+        mock_client.models.generate_content.return_value = mock_resp
+        mock_client_fn.return_value = mock_client
+
+        res = generate_assessment_narrative({"risk_level": "High", "current_aqi": 210}, language="en")
+        assert res is not None
+        assert res["headline"] == "High Smog Alert"
+        assert len(res["family_tips"]) == 1
+
+
+def test_generate_narrative_empty_text_returns_none():
+    """Verify None is returned when response text is empty."""
+    with patch("app.services.llm._client_singleton") as mock_client_fn:
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.text = ""
+        mock_client.models.generate_content.return_value = mock_resp
+        mock_client_fn.return_value = mock_client
+
+        res = generate_assessment_narrative({"risk_level": "High", "current_aqi": 210}, language="en")
+        assert res is None
+
+
+def test_generate_chat_success():
+    """Verify chat reply generation when Gemini client responds successfully."""
+    with patch("app.services.llm._client_singleton") as mock_client_fn:
+        mock_client = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.text = "You should wear a well-fitted N95 mask when stepping out."
+        mock_client.models.generate_content.return_value = mock_resp
+        mock_client_fn.return_value = mock_client
+
+        reply = generate_chat_reply(
+            user_message="Which mask is best for Delhi smog?",
+            history=[{"role": "user", "content": "Hello"}],
+            assessment_context={"current_aqi": 250},
+            language="en",
+        )
+        assert reply is not None
+        assert "N95" in reply
+        assert "informational only" in reply.lower()
+
+
+def test_generate_chat_exception_returns_none():
+    """Verify chat returns None when Gemini call throws an exception."""
+    with patch("app.services.llm._client_singleton") as mock_client_fn:
+        mock_client = MagicMock()
+        mock_client.models.generate_content.side_effect = TimeoutError("Connection timed out")
+        mock_client_fn.return_value = mock_client
+
+        reply = generate_chat_reply(
+            user_message="Is it safe?",
+            history=[],
+            assessment_context={},
+            language="en",
+        )
+        assert reply is None
+

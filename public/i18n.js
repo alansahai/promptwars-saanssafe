@@ -5,7 +5,7 @@
  */
 
 /** @type {Record<string, Record<string, string>>} */
-const STRINGS = {
+export const STRINGS = {
   en: {
     location_title: "Your Location",
     city_search_label: "Search city",

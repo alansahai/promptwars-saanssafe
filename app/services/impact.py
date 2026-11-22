@@ -121,6 +121,43 @@ def _compute_weekly_co2e(profile: HouseholdProfile) -> float:
     return factor * profile.commute_distance_km * 2.0 * profile.commute_days_per_week
 
 
+def _apply_intervention_scenario(
+    profile: HouseholdProfile,
+    enabled_ids: set[str],
+    outdoor_pm25: float,
+) -> tuple[HouseholdProfile, float, str]:
+    """Derive modified household profile, effective PM2.5, and commute mode under active actions."""
+    has_purifier = profile.has_purifier or ("add_air_purifier" in enabled_ids)
+    cooking_fuel = "induction" if "switch_to_induction" in enabled_ids else profile.cooking_fuel
+
+    if "switch_commute_to_metro" in enabled_ids:
+        commute_mode = "metro"
+    elif "switch_commute_to_bus" in enabled_ids:
+        commute_mode = "bus"
+    elif "switch_commute_to_cycle" in enabled_ids:
+        commute_mode = "cycle"
+    else:
+        commute_mode = profile.commute_mode
+
+    commute_days = profile.commute_days_per_week
+    if "work_from_home_2_days" in enabled_ids:
+        commute_days = max(0, commute_days - 2)
+
+    effective_pm25 = outdoor_pm25
+    if "switch_to_induction" in enabled_ids and profile.cooking_fuel == "firewood_biomass":
+        effective_pm25 = max(0.0, outdoor_pm25 - 15.0)
+
+    modified_profile = profile.model_copy(
+        update={
+            "has_purifier": has_purifier,
+            "cooking_fuel": cooking_fuel,
+            "commute_mode": commute_mode,
+            "commute_days_per_week": commute_days,
+        }
+    )
+    return modified_profile, effective_pm25, commute_mode
+
+
 def simulate_impact(
     outdoor_pm25: float,
     profile: HouseholdProfile,
@@ -138,55 +175,22 @@ def simulate_impact(
     Returns:
         SimulateResponse with before/after metrics and assumptions.
     """
-    # Build a mutable copy of relevant profile attributes
-    has_purifier = profile.has_purifier
-    cooking_fuel = profile.cooking_fuel
-    commute_mode = profile.commute_mode
-    commute_distance_km = profile.commute_distance_km
-    commute_days = profile.commute_days_per_week
+    commute_minutes = min(90.0, profile.commute_distance_km * 3.0)
 
-    # Daily commute minutes (one-way 30 min avg, capped by distance)
-    commute_minutes = min(90.0, commute_distance_km * 3.0)
-
-    # --- BEFORE ---
-    before_dose = _compute_daily_dose_ug(outdoor_pm25, profile, commute_minutes, commute_mode)
+    # --- Baseline calculation ---
+    before_dose = _compute_daily_dose_ug(
+        outdoor_pm25, profile, commute_minutes, profile.commute_mode
+    )
     before_co2e = _compute_weekly_co2e(profile)
 
-    # --- Apply chosen actions to a modified profile ---
+    # --- Scenario calculation ---
     enabled_ids = {a.action_id for a in actions if a.enabled}
-
-    if "add_air_purifier" in enabled_ids:
-        has_purifier = True
-    if "switch_to_induction" in enabled_ids:
-        cooking_fuel = "induction"
-    if "switch_commute_to_metro" in enabled_ids:
-        commute_mode = "metro"
-    if "switch_commute_to_bus" in enabled_ids:
-        commute_mode = "bus"
-    if "switch_commute_to_cycle" in enabled_ids:
-        commute_mode = "cycle"
-    if "work_from_home_2_days" in enabled_ids:
-        commute_days = max(0, commute_days - 2)
-
-    # Modify PM2.5 for induction switch
-    effective_pm25 = outdoor_pm25
-    if "switch_to_induction" in enabled_ids and profile.cooking_fuel == "firewood_biomass":
-        # Biomass cooking adds ~200 µg/m³ spike averaged over kitchen time
-        # Rough reduction in background indoor: ~15 µg/m³
-        effective_pm25 = max(0.0, outdoor_pm25 - 15.0)
-
-    # Build modified profile-like values
-    modified_profile = profile.model_copy(
-        update={
-            "has_purifier": has_purifier,
-            "cooking_fuel": cooking_fuel,
-            "commute_mode": commute_mode,
-            "commute_days_per_week": commute_days,
-        }
+    modified_profile, effective_pm25, new_commute = _apply_intervention_scenario(
+        profile, enabled_ids, outdoor_pm25
     )
 
     after_dose = _compute_daily_dose_ug(
-        effective_pm25, modified_profile, commute_minutes, commute_mode
+        effective_pm25, modified_profile, commute_minutes, new_commute
     )
     after_co2e = _compute_weekly_co2e(modified_profile)
 

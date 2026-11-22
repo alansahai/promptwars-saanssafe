@@ -3,8 +3,8 @@
  * Interactive physical dose calculation, presets, and toggleable intervention scenarios.
  */
 
-import { $, $$, el, show } from "./dom.js";
-import { drawSimChart } from "./charts.js";
+import { $, $$, el, show } from "./dom.js?v=20261122_v4_ultracard";
+import { drawSimChart } from "./charts.js?v=20261122_v4_ultracard";
 
 export const SIM_ACTIONS = [
   { id: "add_air_purifier", icon: "🏠", label: "Add HEPA Air Purifier", tag: "Indoor Shield", desc: "Run true HEPA filtration in bedrooms & living areas (-50% infiltration)" },

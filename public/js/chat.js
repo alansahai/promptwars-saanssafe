@@ -4,7 +4,7 @@
  * Sanitizes markdown safely with whitelist DOM constructs.
  */
 
-import { $, el } from "./dom.js";
+import { $, el } from "./dom.js?v=20261122_v4_ultracard";
 
 /**
  * Format markdown into safe sanitized HTML for assistant responses.
