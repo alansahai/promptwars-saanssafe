@@ -87,6 +87,7 @@ def _setup_security_middleware(app: FastAPI, settings: Settings) -> None:
 
     @app.middleware("http")
     async def security_middleware(request: Request, call_next: Callable) -> Response:
+        """Enforce rate limits, request body size limits, and security headers."""
         client_ip = request.client.host if request.client else "unknown"
         if _is_rate_limited(client_ip, settings.rate_limit_per_minute):
             return JSONResponse(
