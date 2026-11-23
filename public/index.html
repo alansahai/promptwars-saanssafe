@@ -360,15 +360,15 @@
         </div>
         <div class="loading-stages" id="loading-stages">
           <div class="stage-step active" id="stage-1">
-            <span class="stage-icon">🛰️</span>
+            <span class="stage-icon" aria-hidden="true">🛰️</span>
             <span class="stage-text">Querying Open-Meteo atmospheric &amp; wind telemetry…</span>
           </div>
           <div class="stage-step" id="stage-2">
-            <span class="stage-icon">🔬</span>
+            <span class="stage-icon" aria-hidden="true">🔬</span>
             <span class="stage-text">Calculating household aerosol deposition &amp; inversion factors…</span>
           </div>
           <div class="stage-step" id="stage-3">
-            <span class="stage-icon">🌱</span>
+            <span class="stage-icon" aria-hidden="true">🌱</span>
             <span class="stage-text">Synthesizing grounded family shielding guidance with Gemini 2.5 Flash…</span>
           </div>
         </div>
@@ -498,7 +498,7 @@
 
           <!-- Activity Safety Matrix -->
           <div class="activity-matrix card" id="activity-matrix">
-            <h4 class="activity-matrix-title">🚦 Activity Safety Directives</h4>
+            <h4 class="activity-matrix-title"><span aria-hidden="true">🚦</span> Activity Safety Directives</h4>
             <div class="activity-grid">
               <div class="activity-card" id="act-walk">
                 <span class="act-icon" aria-hidden="true">🏃</span>
@@ -534,11 +534,11 @@
           <!-- Family & kids tips -->
           <div id="tips-section" class="tips-grid" hidden>
             <div class="tips-card">
-              <h3 class="tips-title" data-i18n="family_tips_title">👨‍👩‍👧 Family Tips</h3>
+              <h3 class="tips-title" data-i18n="family_tips_title"><span aria-hidden="true">👨‍👩‍👧</span> Family Tips</h3>
               <ul id="family-tips-list" class="tips-list"></ul>
             </div>
             <div class="tips-card">
-              <h3 class="tips-title" data-i18n="kids_elder_title">🧒👴 Kids & Elders</h3>
+              <h3 class="tips-title" data-i18n="kids_elder_title"><span aria-hidden="true">🧒👴</span> Kids &amp; Elders</h3>
               <ul id="kids-tips-list" class="tips-list"></ul>
             </div>
           </div>
@@ -554,7 +554,7 @@
         <div id="tab-alternatives" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-alternatives" hidden>
           <div class="tab-header-banner">
             <div class="tab-header-titles">
-              <h3 class="tab-heading">🌱 Sustainable Smog Swaps</h3>
+              <h3 class="tab-heading"><span aria-hidden="true">🌱</span> Sustainable Smog Swaps</h3>
               <p class="tab-desc">High-impact daily transport, cooking, and lifestyle alternatives that protect your lungs and slash urban emissions.</p>
             </div>
             <div class="tab-badge-pill">
@@ -583,7 +583,7 @@
             </div>
             <!-- Quick Presets -->
             <div class="sim-presets" role="group" aria-label="Simulation Presets">
-              <span class="presets-label">⚡ Presets:</span>
+              <span class="presets-label"><span aria-hidden="true">⚡</span> Presets:</span>
               <button type="button" class="preset-chip active" data-preset="balanced">⚖️ Balanced</button>
               <button type="button" class="preset-chip" data-preset="zero_cost">🪙 Zero-Cost</button>
               <button type="button" class="preset-chip" data-preset="max_protection">🛡️ Max Shield</button>
@@ -613,7 +613,7 @@
 
               <div class="comp-badge-wrap">
                 <div class="reduction-badge" id="sim-reduction-badge">
-                  <span class="reduction-icon">⬇</span>
+                  <span class="reduction-icon" aria-hidden="true">⬇</span>
                   <span class="reduction-val" id="sim-reduction-pct">—%</span>
                   <span class="reduction-label">PM2.5 Cut</span>
                 </div>
@@ -697,7 +697,7 @@
                 </div>
               </div>
               <button id="btn-clear-chat" type="button" class="btn btn-sm btn-outline chat-clear-btn" title="Clear chat history">
-                <span>🗑️ Clear</span>
+                <span><span aria-hidden="true">🗑️</span> Clear</span>
               </button>
             </div>
 
@@ -705,14 +705,14 @@
 
             <!-- Suggested Prompt Chips -->
             <div class="chat-suggestions-wrap">
-              <span class="suggestions-label">💡 Suggested Questions:</span>
+              <span class="suggestions-label"><span aria-hidden="true">💡</span> Suggested Questions:</span>
               <div class="chat-suggestions" aria-label="Suggested questions">
-                <button type="button" class="chat-chip">🏃 Can I jog outside today?</button>
-                <button type="button" class="chat-chip">👶 Is it safe for kids to play in the park?</button>
-                <button type="button" class="chat-chip">😷 Which mask protects best: N95 or cloth?</button>
-                <button type="button" class="chat-chip">🪟 When should I open windows for ventilation?</button>
-                <button type="button" class="chat-chip">🍃 Do indoor plants clean PM2.5 smog?</button>
-                <button type="button" class="chat-chip">🚗 How to set car AC during heavy traffic?</button>
+                <button type="button" class="chat-chip"><span aria-hidden="true">🏃</span> Can I jog outside today?</button>
+                <button type="button" class="chat-chip"><span aria-hidden="true">👶</span> Is it safe for kids to play in the park?</button>
+                <button type="button" class="chat-chip"><span aria-hidden="true">😷</span> Which mask protects best: N95 or cloth?</button>
+                <button type="button" class="chat-chip"><span aria-hidden="true">🪟</span> When should I open windows for ventilation?</button>
+                <button type="button" class="chat-chip"><span aria-hidden="true">🍃</span> Do indoor plants clean PM2.5 smog?</button>
+                <button type="button" class="chat-chip"><span aria-hidden="true">🚗</span> How to set car AC during heavy traffic?</button>
               </div>
             </div>
 
@@ -733,7 +733,7 @@
                 Ask any question about today's smog levels, safe outdoor exercise windows, mask ratings (N95 vs cloth), or DIY air purifier builds.
               </span>
               <p class="chat-disclaimer" data-i18n="chat_disclaimer">
-                ⚕️ Not medical advice. For emergencies, call 112.
+                <span aria-hidden="true">⚕️</span> Not medical advice. For emergencies, call 112.
               </p>
             </div>
           </div>
@@ -751,10 +751,10 @@
         </div>
         <div class="plan-actions-buttons">
           <button id="btn-copy-summary" class="btn btn-outline btn-sm no-print" type="button" title="Copy full plan summary to clipboard">
-            <span>📋 Copy Protocol</span>
+            <span><span aria-hidden="true">📋</span> Copy Protocol</span>
           </button>
           <button id="btn-print-plan" class="btn btn-primary btn-sm no-print" type="button" data-i18n="print_plan">
-            <span>🖨️ Print / Save PDF</span>
+            <span><span aria-hidden="true">🖨️</span> Print / Save PDF</span>
           </button>
         </div>
       </div>
@@ -771,7 +771,7 @@
       <a href="https://cpcb.nic.in/" target="_blank" rel="noopener noreferrer">India CPCB NAQI</a>
     </p>
     <p class="disclaimer">
-      ⚕️ <strong>Disclaimer:</strong> SaansSafe is for informational purposes only.
+      <span aria-hidden="true">⚕️</span> <strong>Disclaimer:</strong> SaansSafe is for informational purposes only.
       It is NOT medical advice. For severe breathing difficulties or emergencies, call <strong>112</strong> immediately.
     </p>
     <p class="footer-credit">

@@ -53,7 +53,7 @@ function _createHackCard(h) {
   const header = el("div", null, { class: "alt-card-header" });
   const iconWrap = el("div", null, { class: "alt-icon-wrap" });
   const tipIcon = (h.cost_tier === "zero" || h.cost_tier === "free") ? "💡" : h.cost_tier === "low" ? "🧹" : "🏠";
-  iconWrap.appendChild(el("span", tipIcon, { class: "alt-icon" }));
+  iconWrap.appendChild(el("span", tipIcon, { class: "alt-icon", "aria-hidden": "true" }));
   header.appendChild(iconWrap);
 
   const badgeWrap = el("div", null, { class: "alt-badges-wrap" });
@@ -98,7 +98,7 @@ export function renderHacks(hacks) {
 function _createAltHeader(a) {
   const header = el("div", null, { class: "alt-card-header" });
   const iconWrap = el("div", null, { class: "alt-icon-wrap" });
-  iconWrap.appendChild(el("span", a.icon || "🌱", { class: "alt-icon" }));
+  iconWrap.appendChild(el("span", a.icon || "🌱", { class: "alt-icon", "aria-hidden": "true" }));
   header.appendChild(iconWrap);
 
   const badgeWrap = el("div", null, { class: "alt-badges-wrap" });
@@ -117,7 +117,14 @@ function _createAltMetricsGrid(a) {
 
   const m1 = el("div", null, { class: "alt-metric" });
   m1.appendChild(el("span", a.exposure_change_pct < 0 ? "Personal Dose Cut" : "Exposure Shield", { class: "alt-m-label" }));
-  m1.appendChild(el("span", a.exposure_change_pct < 0 ? `⬇ ${Math.abs(a.exposure_change_pct)}%` : "Active", { class: "alt-m-val text-success" }));
+  const valSpan = el("span", "", { class: "alt-m-val text-success" });
+  if (a.exposure_change_pct < 0) {
+    valSpan.appendChild(el("span", "⬇ ", { "aria-hidden": "true" }));
+    valSpan.appendChild(document.createTextNode(`${Math.abs(a.exposure_change_pct)}%`));
+  } else {
+    valSpan.textContent = "Active";
+  }
+  m1.appendChild(valSpan);
   metricsGrid.appendChild(m1);
 
   const m2 = el("div", null, { class: "alt-metric" });
@@ -147,7 +154,10 @@ function _createAltMetricsGrid(a) {
 
 function _createAltSimButton(a, onTestSimulator) {
   const btn = el("button", null, { class: "btn btn-outline btn-sm btn-simulate-alt", type: "button" });
-  btn.appendChild(el("span", "🧪 Test in What-If Simulator"));
+  const btnLabel = el("span", "");
+  btnLabel.appendChild(el("span", "🧪 ", { "aria-hidden": "true" }));
+  btnLabel.appendChild(document.createTextNode("Test in What-If Simulator"));
+  btn.appendChild(btnLabel);
   btn.appendChild(el("span", " →", { "aria-hidden": "true" }));
 
   btn.addEventListener("click", () => {
@@ -179,7 +189,10 @@ function _createAltCard(a, onTestSimulator) {
   card.appendChild(_createAltMetricsGrid(a));
 
   if (a.community_note) {
-    card.appendChild(el("p", `🌍 ${a.community_note}`, { class: "card-desc card-community" }));
+    const commPara = el("p", null, { class: "card-desc card-community" });
+    commPara.appendChild(el("span", "🌍 ", { "aria-hidden": "true" }));
+    commPara.appendChild(document.createTextNode(a.community_note));
+    card.appendChild(commPara);
   }
   if (a.sim_action_id) {
     card.appendChild(_createAltSimButton(a, onTestSimulator));
