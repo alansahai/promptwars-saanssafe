@@ -205,6 +205,37 @@ def get_indoor_hacks(
     ]
 
 
+def _is_alternative_applicable(alt: dict, commute_mode: str, cooking_fuel: str) -> bool:
+    """Check if alternative applies to household commute mode or cooking fuel."""
+    from_modes = alt.get("from_modes", [])
+    from_fuels = alt.get("from_fuels", [])
+
+    if from_modes and commute_mode not in from_modes and not from_fuels:
+        return False
+    return not (
+        from_fuels
+        and cooking_fuel not in from_fuels
+        and (not from_modes or commute_mode not in from_modes)
+    )
+
+
+def _format_alternative_item(alt: dict) -> dict:
+    """Format alternative catalogue entry into display schema."""
+    return {
+        "id": alt["id"],
+        "category": alt.get("category", "transit"),
+        "icon": alt.get("icon", "🌱"),
+        "title": alt["title"],
+        "description": alt["description"],
+        "exposure_change_pct": alt.get("exposure_change_pct", 0.0),
+        "emission_change_gco2e_per_km": alt.get("emission_change_gco2e_per_km", 0.0),
+        "monthly_savings_inr": alt.get("monthly_savings_inr", 0),
+        "community_note": alt.get("community_note", ""),
+        "effort": alt.get("effort", "Easy"),
+        "sim_action_id": alt.get("sim_action_id", ""),
+    }
+
+
 def get_sustainable_alternatives(
     profile: HouseholdProfile,
 ) -> list[dict]:
@@ -216,34 +247,8 @@ def get_sustainable_alternatives(
     Returns:
         Filtered list of sustainable alternative dicts.
     """
-    results: list[dict] = []
-    for alt in SUSTAINABLE_ALTERNATIVES:
-        from_modes = alt.get("from_modes", [])
-        from_fuels = alt.get("from_fuels", [])
-
-        # Include if relevant to commute mode or fuel
-        if from_modes and profile.commute_mode not in from_modes and not from_fuels:
-            continue
-        if (
-            from_fuels
-            and profile.cooking_fuel not in from_fuels
-            and (not from_modes or profile.commute_mode not in from_modes)
-        ):
-            continue
-
-        results.append(
-            {
-                "id": alt["id"],
-                "category": alt.get("category", "transit"),
-                "icon": alt.get("icon", "🌱"),
-                "title": alt["title"],
-                "description": alt["description"],
-                "exposure_change_pct": alt.get("exposure_change_pct", 0.0),
-                "emission_change_gco2e_per_km": alt.get("emission_change_gco2e_per_km", 0.0),
-                "monthly_savings_inr": alt.get("monthly_savings_inr", 0),
-                "community_note": alt.get("community_note", ""),
-                "effort": alt.get("effort", "Easy"),
-                "sim_action_id": alt.get("sim_action_id", ""),
-            }
-        )
-    return results
+    return [
+        _format_alternative_item(alt)
+        for alt in SUSTAINABLE_ALTERNATIVES
+        if _is_alternative_applicable(alt, profile.commute_mode, profile.cooking_fuel)
+    ]

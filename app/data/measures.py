@@ -233,6 +233,26 @@ MEASURES: list[Measure] = [
 ]
 
 
+def _is_measure_applicable(
+    m: Measure,
+    budget: str,
+    risk_level: str,
+    has_purifier: bool,
+    cooking_fuel: str,
+) -> bool:
+    """Check if measure meets budget, risk level, and household setup criteria."""
+    if budget not in m.get("applicable_budget", []):
+        return False
+    if risk_level not in m.get("applicable_risk_levels", []):
+        return False
+    if m["id"] == "air_purifier_placement" and not has_purifier:
+        return False
+    return not (
+        m["id"] == "switch_to_induction"
+        and cooking_fuel not in ("firewood_biomass", "lpg")
+    )
+
+
 def get_measures_for_profile(
     budget: str,
     risk_level: str,
@@ -252,28 +272,14 @@ def get_measures_for_profile(
 
     Returns:
         Ranked list of applicable Measure dicts.
-
     """
     cost_weights = {"free": 1.0, "low": 2.0, "medium": 3.0, "high": 4.0}
-    filtered: list[Measure] = []
+    filtered = [
+        m
+        for m in MEASURES
+        if _is_measure_applicable(m, budget, risk_level, has_purifier, cooking_fuel)
+    ]
 
-    for m in MEASURES:
-        if budget not in m.get("applicable_budget", []):
-            continue
-        if risk_level not in m.get("applicable_risk_levels", []):
-            continue
-        # Skip purifier placement tip if no purifier
-        if m["id"] == "air_purifier_placement" and not has_purifier:
-            continue
-        # Only show biomass-specific tip when relevant
-        if m["id"] == "switch_to_induction" and cooking_fuel not in (
-            "firewood_biomass",
-            "lpg",
-        ):
-            continue
-        filtered.append(m)
-
-    # Sort by bang-per-buck (higher reduction / higher cost weight → lower rank)
     filtered.sort(
         key=lambda x: x.get("pm25_reduction_pct", 0)
         / cost_weights.get(x.get("cost_tier", "medium"), 2),

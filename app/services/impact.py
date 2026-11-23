@@ -58,52 +58,40 @@ def _age_weighted_breathing_rate(profile: HouseholdProfile) -> float:
     return rate / total
 
 
+def _compute_transit_dose(
+    commute_mode: str,
+    vehicle_pm25: float,
+    outdoor_pm25: float,
+    br: float,
+    actual_transit: float,
+    conversion: float,
+) -> float:
+    """Calculate inhaled PM2.5 dose during transit."""
+    c = outdoor_pm25 if commute_mode in ("walk", "cycle") else vehicle_pm25
+    return c * br * actual_transit * conversion
+
+
 def _compute_daily_dose_ug(
     outdoor_pm25: float,
     profile: HouseholdProfile,
     commute_minutes: float,
     commute_mode: str,
 ) -> float:
-    """Compute estimated daily PM2.5 inhaled dose in micrograms.
-
-    Formula:
-        dose = Σ (C_env × breathing_rate_L_min × minutes × 1e-3 µg/L·µg/m³ factor)
-
-    Note: 1 L of air at PM2.5 concentration C µg/m³ contains C × 10⁻³ µg of PM2.5
-    (since 1 m³ = 1000 L).
-
-    Args:
-        outdoor_pm25: Ambient PM2.5 concentration in µg/m³.
-        profile: Household profile.
-        commute_minutes: Total daily commute time in minutes.
-        commute_mode: Mode used for commute.
-
-    Returns:
-        Estimated daily inhaled PM2.5 dose in µg.
-    """
+    """Compute estimated daily PM2.5 inhaled dose (µg) across microenvironments."""
     infiltration = get_infiltration_factor(profile.has_purifier, profile.windows_type)
     indoor_pm25 = outdoor_pm25 * infiltration
     vehicle_pm25 = outdoor_pm25 * _VEHICLE_INFILTRATION
 
     br = _age_weighted_breathing_rate(profile)  # L/min
-
-    # Adjust microenvironment times for commute
     actual_transit = min(commute_minutes, _MINUTES_IN_TRANSIT)
     actual_outdoor = max(0, _MINUTES_OUTDOOR - actual_transit)
-
-    # Concentration by microenvironment
-    # (µg/m³ × L/min × min × 10⁻³ L→m³) = µg
-    conversion = 1e-3  # L/min × min × concentration = µg (since 1 m³ = 1000 L)
+    conversion = 1e-3
 
     dose_indoor = indoor_pm25 * br * (_MINUTES_INDOOR_WAKING + _MINUTES_SLEEPING) * conversion
     dose_outdoor = outdoor_pm25 * br * actual_outdoor * conversion
-
-    if commute_mode in ("metro", "bus"):
-        dose_transit = vehicle_pm25 * br * actual_transit * conversion
-    elif commute_mode in ("walk", "cycle"):
-        dose_transit = outdoor_pm25 * br * actual_transit * conversion
-    else:  # car, two_wheeler, auto
-        dose_transit = vehicle_pm25 * br * actual_transit * conversion
+    dose_transit = _compute_transit_dose(
+        commute_mode, vehicle_pm25, outdoor_pm25, br, actual_transit, conversion
+    )
 
     return round(dose_indoor + dose_outdoor + dose_transit, 2)
 
@@ -158,49 +146,8 @@ def _apply_intervention_scenario(
     return modified_profile, effective_pm25, commute_mode
 
 
-def simulate_impact(
-    outdoor_pm25: float,
-    profile: HouseholdProfile,
-    actions: list[SimulateAction],
-) -> SimulateResponse:
-    """Compute before-vs-after impact for a set of chosen actions.
-
-    This is a PURE function: deterministic, no I/O.
-
-    Args:
-        outdoor_pm25: Current outdoor PM2.5 in µg/m³.
-        profile: Baseline household profile.
-        actions: List of chosen actions (enabled=True applies the action).
-
-    Returns:
-        SimulateResponse with before/after metrics and assumptions.
-    """
-    commute_minutes = min(90.0, profile.commute_distance_km * 3.0)
-
-    # --- Baseline calculation ---
-    before_dose = _compute_daily_dose_ug(
-        outdoor_pm25, profile, commute_minutes, profile.commute_mode
-    )
-    before_co2e = _compute_weekly_co2e(profile)
-
-    # --- Scenario calculation ---
-    enabled_ids = {a.action_id for a in actions if a.enabled}
-    modified_profile, effective_pm25, new_commute = _apply_intervention_scenario(
-        profile, enabled_ids, outdoor_pm25
-    )
-
-    after_dose = _compute_daily_dose_ug(
-        effective_pm25, modified_profile, commute_minutes, new_commute
-    )
-    after_co2e = _compute_weekly_co2e(modified_profile)
-
-    co2e_saved_per_year_g = (before_co2e - after_co2e) * 52.0
-    co2e_saved_per_year_kg = round(co2e_saved_per_year_g / 1000.0, 1)
-
-    # Equivalent km not driven (car = 192 gCO2e/km)
-    car_factor = 192.0
-    equiv_km = round(co2e_saved_per_year_g / car_factor, 0) if co2e_saved_per_year_g > 0 else 0.0
-
+def _get_simulation_assumptions_and_formula() -> tuple[list[str], str]:
+    """Return static assumptions and calculation formula documentation."""
     assumptions = [
         "PM2.5 dose calculated using WHO 2000 exposure factor breathing rates.",
         "Indoor concentration = outdoor × infiltration factor (purifier: 0.15, no purifier: 0.55–0.75).",
@@ -209,19 +156,57 @@ def simulate_impact(
         "These are illustrative estimates, not certified emission inventories.",
         "Not medical advice. Consult a healthcare professional for health decisions.",
     ]
-
     formula = (
         "PM2.5 dose (µg) = Σ [C_env (µg/m³) × BR (L/min) × t (min) × 10⁻³]\n"
         "where C_env = outdoor_PM2.5 × infiltration_factor\n"
         "CO2e (g/week) = emission_factor × distance × 2 × days_per_week"
     )
+    return assumptions, formula
+
+
+def _calculate_co2e_metric(
+    before_co2e: float, after_co2e: float
+) -> tuple[float, float]:
+    """Compute annual CO2e savings in kg and equivalent km not driven."""
+    saved_g = (before_co2e - after_co2e) * 52.0
+    saved_kg = round(saved_g / 1000.0, 1)
+    car_factor = 192.0
+    equiv_km = round(saved_g / car_factor, 0) if saved_g > 0 else 0.0
+    return saved_kg, equiv_km
+
+
+def simulate_impact(
+    outdoor_pm25: float,
+    profile: HouseholdProfile,
+    actions: list[SimulateAction],
+) -> SimulateResponse:
+    """Compute before-vs-after impact for a set of chosen actions."""
+    commute_minutes = min(90.0, profile.commute_distance_km * 3.0)
+
+    before_dose = _compute_daily_dose_ug(
+        outdoor_pm25, profile, commute_minutes, profile.commute_mode
+    )
+    before_co2e = _compute_weekly_co2e(profile)
+
+    enabled_ids = {a.action_id for a in actions if a.enabled}
+    mod_prof, eff_pm25, new_commute = _apply_intervention_scenario(
+        profile, enabled_ids, outdoor_pm25
+    )
+
+    after_dose = _compute_daily_dose_ug(
+        eff_pm25, mod_prof, commute_minutes, new_commute
+    )
+    after_co2e = _compute_weekly_co2e(mod_prof)
+
+    saved_kg, equiv_km = _calculate_co2e_metric(before_co2e, after_co2e)
+    assumptions, formula = _get_simulation_assumptions_and_formula()
 
     return SimulateResponse(
         before_pm25_dose_ug=before_dose,
         after_pm25_dose_ug=after_dose,
         before_co2e_week_g=round(before_co2e, 1),
         after_co2e_week_g=round(after_co2e, 1),
-        co2e_saved_per_year_kg=co2e_saved_per_year_kg,
+        co2e_saved_per_year_kg=saved_kg,
         equivalent_km_not_driven=equiv_km,
         assumptions=assumptions,
         formula=formula,

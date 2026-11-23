@@ -47,6 +47,43 @@ export function renderTimeline(tasks) {
   });
 }
 
+function _createHackCard(h) {
+  const card = el("div", null, { class: "measure-card", role: "listitem" });
+
+  const header = el("div", null, { class: "alt-card-header" });
+  const iconWrap = el("div", null, { class: "alt-icon-wrap" });
+  const tipIcon = (h.cost_tier === "zero" || h.cost_tier === "free") ? "💡" : h.cost_tier === "low" ? "🧹" : "🏠";
+  iconWrap.appendChild(el("span", tipIcon, { class: "alt-icon" }));
+  header.appendChild(iconWrap);
+
+  const badgeWrap = el("div", null, { class: "alt-badges-wrap" });
+  const costClass = (h.cost_tier === "zero" || h.cost_tier === "free") ? "tag-free" : h.cost_tier === "low" ? "tag-low" : "tag-medium";
+  const costLabel = (h.cost_tier === "zero" || h.cost_tier === "free") ? "Zero-Cost" : h.cost_tier === "low" ? "Low-Cost" : "High-Impact";
+  badgeWrap.appendChild(el("span", costLabel, { class: `tag ${costClass}` }));
+  if (h.effort) badgeWrap.appendChild(el("span", h.effort, { class: "tag" }));
+  header.appendChild(badgeWrap);
+  card.appendChild(header);
+
+  card.appendChild(el("h3", h.title, { class: "card-title" }));
+  card.appendChild(el("p", h.description, { class: "card-desc" }));
+
+  if (h.effect_pct > 0) {
+    const barWrap = el("div", null, { class: "effect-bar-wrap" });
+    barWrap.appendChild(el("div", `Estimated PM2.5 reduction: ~${h.effect_pct}%`, { class: "effect-bar-label" }));
+    const bar = el("div", null, { class: "effect-bar" });
+    const fill = el("div", null, { class: "effect-fill" });
+    fill.style.width = `${Math.min(100, h.effect_pct)}%`;
+    bar.appendChild(fill);
+    barWrap.appendChild(bar);
+    card.appendChild(barWrap);
+  }
+
+  if (h.myth_bust) {
+    card.appendChild(el("p", h.myth_bust, { class: "myth-bust" }));
+  }
+  return card;
+}
+
 /**
  * Render verified indoor air quality hacks with cost tiers, progress bars, and myth busters.
  * @param {Array<{cost_tier: string, effort?: string, title: string, description: string, effect_pct: number, myth_bust?: string}>} hacks
@@ -55,44 +92,99 @@ export function renderHacks(hacks) {
   const grid = $("#hacks-grid");
   if (!grid) return;
   grid.textContent = "";
-  hacks.forEach((h) => {
-    const card = el("div", null, { class: "measure-card", role: "listitem" });
+  hacks.forEach((h) => grid.appendChild(_createHackCard(h)));
+}
 
-    // Card Header with category icon & cost badge
-    const header = el("div", null, { class: "alt-card-header" });
-    const iconWrap = el("div", null, { class: "alt-icon-wrap" });
-    const tipIcon = (h.cost_tier === "zero" || h.cost_tier === "free") ? "💡" : h.cost_tier === "low" ? "🧹" : "🏠";
-    iconWrap.appendChild(el("span", tipIcon, { class: "alt-icon" }));
-    header.appendChild(iconWrap);
+function _createAltHeader(a) {
+  const header = el("div", null, { class: "alt-card-header" });
+  const iconWrap = el("div", null, { class: "alt-icon-wrap" });
+  iconWrap.appendChild(el("span", a.icon || "🌱", { class: "alt-icon" }));
+  header.appendChild(iconWrap);
 
-    const badgeWrap = el("div", null, { class: "alt-badges-wrap" });
-    const costClass = (h.cost_tier === "zero" || h.cost_tier === "free") ? "tag-free" : h.cost_tier === "low" ? "tag-low" : "tag-medium";
-    const costLabel = (h.cost_tier === "zero" || h.cost_tier === "free") ? "Zero-Cost" : h.cost_tier === "low" ? "Low-Cost" : "High-Impact";
-    badgeWrap.appendChild(el("span", costLabel, { class: `tag ${costClass}` }));
-    if (h.effort) badgeWrap.appendChild(el("span", h.effort, { class: "tag" }));
-    header.appendChild(badgeWrap);
-    card.appendChild(header);
+  const badgeWrap = el("div", null, { class: "alt-badges-wrap" });
+  const categoryName = a.category === "transit" ? "Transit Swap" : a.category === "cooking" ? "Clean Cooking" : "Home & Work";
+  badgeWrap.appendChild(el("span", categoryName, { class: "tag tag-category" }));
 
-    card.appendChild(el("h3", h.title, { class: "card-title" }));
-    card.appendChild(el("p", h.description, { class: "card-desc" }));
+  const effortLabel = a.effort || "Recommended";
+  const effortClass = (effortLabel === "Easy" || effortLabel === "Zero-Cost") ? "tag-free" : effortLabel === "Low-Cost" ? "tag-low" : "tag-medium";
+  badgeWrap.appendChild(el("span", effortLabel, { class: `tag ${effortClass}` }));
+  header.appendChild(badgeWrap);
+  return header;
+}
 
-    if (h.effect_pct > 0) {
-      const barWrap = el("div", null, { class: "effect-bar-wrap" });
-      barWrap.appendChild(el("div", `Estimated PM2.5 reduction: ~${h.effect_pct}%`, { class: "effect-bar-label" }));
-      const bar = el("div", null, { class: "effect-bar" });
-      const fill = el("div", null, { class: "effect-fill" });
-      fill.style.width = `${Math.min(100, h.effect_pct)}%`;
-      bar.appendChild(fill);
-      barWrap.appendChild(bar);
-      card.appendChild(barWrap);
+function _createAltMetricsGrid(a) {
+  const metricsGrid = el("div", null, { class: "alt-metrics-grid" });
+
+  const m1 = el("div", null, { class: "alt-metric" });
+  m1.appendChild(el("span", a.exposure_change_pct < 0 ? "Personal Dose Cut" : "Exposure Shield", { class: "alt-m-label" }));
+  m1.appendChild(el("span", a.exposure_change_pct < 0 ? `⬇ ${Math.abs(a.exposure_change_pct)}%` : "Active", { class: "alt-m-val text-success" }));
+  metricsGrid.appendChild(m1);
+
+  const m2 = el("div", null, { class: "alt-metric" });
+  if (a.emission_change_gco2e_per_km < 0) {
+    m2.appendChild(el("span", "Carbon Saved", { class: "alt-m-label" }));
+    m2.appendChild(el("span", `${a.emission_change_gco2e_per_km.toFixed(0)} g/km`, { class: "alt-m-val text-accent" }));
+  } else if (a.category === "home" || a.id?.includes("purifier") || a.id?.includes("waste")) {
+    m2.appendChild(el("span", "Indoor Filtration", { class: "alt-m-label" }));
+    m2.appendChild(el("span", "H13 Pure", { class: "alt-m-val text-accent" }));
+  } else {
+    m2.appendChild(el("span", "Combustion Soot", { class: "alt-m-label" }));
+    m2.appendChild(el("span", "Zero Smoke", { class: "alt-m-val text-accent" }));
+  }
+  metricsGrid.appendChild(m2);
+
+  const m3 = el("div", null, { class: "alt-metric" });
+  if (a.monthly_savings_inr) {
+    m3.appendChild(el("span", "Est. Fuel Saved", { class: "alt-m-label" }));
+    m3.appendChild(el("span", `~₹${a.monthly_savings_inr}/mo`, { class: "alt-m-val text-warning" }));
+  } else {
+    m3.appendChild(el("span", "Effort Level", { class: "alt-m-label" }));
+    m3.appendChild(el("span", a.effort || "Recommended", { class: "alt-m-val text-warning" }));
+  }
+  metricsGrid.appendChild(m3);
+  return metricsGrid;
+}
+
+function _createAltSimButton(a, onTestSimulator) {
+  const btn = el("button", null, { class: "btn btn-outline btn-sm btn-simulate-alt", type: "button" });
+  btn.appendChild(el("span", "🧪 Test in What-If Simulator"));
+  btn.appendChild(el("span", " →", { "aria-hidden": "true" }));
+
+  btn.addEventListener("click", () => {
+    if (onTestSimulator) {
+      onTestSimulator(a.sim_action_id);
+    } else {
+      const tabBtn = $("#tab-btn-simulator");
+      if (tabBtn) tabBtn.click();
+      const cb = document.querySelector(`#sim-actions input[name="${a.sim_action_id}"]`);
+      if (cb) {
+        cb.checked = true;
+        cb.dispatchEvent(new Event("change"));
+      }
+      $("#tab-simulator")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
-
-    if (h.myth_bust) {
-      card.appendChild(el("p", h.myth_bust, { class: "myth-bust" }));
-    }
-
-    grid.appendChild(card);
   });
+  return btn;
+}
+
+function _createAltCard(a, onTestSimulator) {
+  const card = el("div", null, {
+    class: `alt-card alt-cat-${a.category || "transit"}`,
+    role: "listitem",
+    "data-category": a.category || "transit",
+  });
+  card.appendChild(_createAltHeader(a));
+  card.appendChild(el("h3", a.title, { class: "card-title" }));
+  card.appendChild(el("p", a.description, { class: "card-desc" }));
+  card.appendChild(_createAltMetricsGrid(a));
+
+  if (a.community_note) {
+    card.appendChild(el("p", `🌍 ${a.community_note}`, { class: "card-desc card-community" }));
+  }
+  if (a.sim_action_id) {
+    card.appendChild(_createAltSimButton(a, onTestSimulator));
+  }
+  return card;
 }
 
 /**
@@ -107,108 +199,7 @@ export function renderAlternatives(alts, onTestSimulator) {
   grid.textContent = "";
 
   _allAlternatives.forEach((a) => {
-    const card = el("div", null, {
-      class: `alt-card alt-cat-${a.category || "transit"}`,
-      role: "listitem",
-      "data-category": a.category || "transit",
-    });
-
-    // Card Header with category icon, category pill & effort badge
-    const header = el("div", null, { class: "alt-card-header" });
-    const iconWrap = el("div", null, { class: "alt-icon-wrap" });
-    iconWrap.appendChild(el("span", a.icon || "🌱", { class: "alt-icon" }));
-    header.appendChild(iconWrap);
-
-    const badgeWrap = el("div", null, { class: "alt-badges-wrap" });
-    const categoryName = a.category === "transit" ? "Transit Swap" : a.category === "cooking" ? "Clean Cooking" : "Home & Work";
-    badgeWrap.appendChild(el("span", categoryName, { class: "tag tag-category" }));
-
-    const effortLabel = a.effort || "Recommended";
-    const effortClass = (effortLabel === "Easy" || effortLabel === "Zero-Cost") ? "tag-free" : effortLabel === "Low-Cost" ? "tag-low" : "tag-medium";
-    badgeWrap.appendChild(el("span", effortLabel, { class: `tag ${effortClass}` }));
-    header.appendChild(badgeWrap);
-    card.appendChild(header);
-
-    // Title & description
-    card.appendChild(el("h3", a.title, { class: "card-title" }));
-    card.appendChild(el("p", a.description, { class: "card-desc" }));
-
-    // Key Impact Metrics Grid (3-column uniform dashboard)
-    const metricsGrid = el("div", null, { class: "alt-metrics-grid" });
-    if (a.exposure_change_pct < 0) {
-      const m1 = el("div", null, { class: "alt-metric" });
-      m1.appendChild(el("span", "Personal Dose Cut", { class: "alt-m-label" }));
-      m1.appendChild(el("span", `⬇ ${Math.abs(a.exposure_change_pct)}%`, { class: "alt-m-val text-success" }));
-      metricsGrid.appendChild(m1);
-    } else {
-      const m1 = el("div", null, { class: "alt-metric" });
-      m1.appendChild(el("span", "Exposure Shield", { class: "alt-m-label" }));
-      m1.appendChild(el("span", "Active", { class: "alt-m-val text-success" }));
-      metricsGrid.appendChild(m1);
-    }
-
-    if (a.emission_change_gco2e_per_km < 0) {
-      const m2 = el("div", null, { class: "alt-metric" });
-      m2.appendChild(el("span", "Carbon Saved", { class: "alt-m-label" }));
-      m2.appendChild(el("span", `${a.emission_change_gco2e_per_km.toFixed(0)} g/km`, { class: "alt-m-val text-accent" }));
-      metricsGrid.appendChild(m2);
-    } else if (a.category === "home" || a.id?.includes("purifier") || a.id?.includes("waste")) {
-      const m2 = el("div", null, { class: "alt-metric" });
-      m2.appendChild(el("span", "Indoor Filtration", { class: "alt-m-label" }));
-      m2.appendChild(el("span", "H13 Pure", { class: "alt-m-val text-accent" }));
-      metricsGrid.appendChild(m2);
-    } else {
-      const m2 = el("div", null, { class: "alt-metric" });
-      m2.appendChild(el("span", "Combustion Soot", { class: "alt-m-label" }));
-      m2.appendChild(el("span", "Zero Smoke", { class: "alt-m-val text-accent" }));
-      metricsGrid.appendChild(m2);
-    }
-
-    if (a.monthly_savings_inr) {
-      const m3 = el("div", null, { class: "alt-metric" });
-      m3.appendChild(el("span", "Est. Fuel Saved", { class: "alt-m-label" }));
-      m3.appendChild(el("span", `~₹${a.monthly_savings_inr}/mo`, { class: "alt-m-val text-warning" }));
-      metricsGrid.appendChild(m3);
-    } else {
-      const m3 = el("div", null, { class: "alt-metric" });
-      m3.appendChild(el("span", "Effort Level", { class: "alt-m-label" }));
-      m3.appendChild(el("span", a.effort || "Recommended", { class: "alt-m-val text-warning" }));
-      metricsGrid.appendChild(m3);
-    }
-    card.appendChild(metricsGrid);
-
-    // Community note
-    if (a.community_note) {
-      const note = el("p", `🌍 ${a.community_note}`, { class: "card-desc card-community" });
-      card.appendChild(note);
-    }
-
-    // Action button: Test in What-If
-    if (a.sim_action_id) {
-      const btn = el("button", null, { class: "btn btn-outline btn-sm btn-simulate-alt", type: "button" });
-      const btnSpan = el("span", "🧪 Test in What-If Simulator");
-      const arrowSpan = el("span", " →", { "aria-hidden": "true" });
-      btn.appendChild(btnSpan);
-      btn.appendChild(arrowSpan);
-
-      btn.addEventListener("click", () => {
-        if (onTestSimulator) {
-          onTestSimulator(a.sim_action_id);
-        } else {
-          const tabBtn = $("#tab-btn-simulator");
-          if (tabBtn) tabBtn.click();
-          const cb = document.querySelector(`#sim-actions input[name="${a.sim_action_id}"]`);
-          if (cb) {
-            cb.checked = true;
-            cb.dispatchEvent(new Event("change"));
-          }
-          $("#tab-simulator")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      });
-      card.appendChild(btn);
-    }
-
-    grid.appendChild(card);
+    grid.appendChild(_createAltCard(a, onTestSimulator));
   });
 
   initAltFilters();

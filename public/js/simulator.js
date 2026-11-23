@@ -15,6 +15,44 @@ export const SIM_ACTIONS = [
   { id: "work_from_home_2_days", icon: "💻", label: "Work From Home 2 Days/Week", tag: "Avoid Peak Smog", desc: "Completely eliminate travel exposure on 2 heaviest smog weekdays" },
 ];
 
+function _createSimActionItem(action, idx, getState, apiEndpoint) {
+  const item = el("label", null, { class: "sim-action-item" });
+
+  const leftWrap = el("div", null, { class: "sim-item-left" });
+  leftWrap.appendChild(el("span", action.icon || "⚡", { class: "sim-item-icon" }));
+
+  const textWrap = el("div", null, { class: "sim-item-text" });
+  const titleRow = el("div", null, { class: "sim-title-row" });
+  titleRow.appendChild(el("span", action.label, { class: "sim-action-label" }));
+  if (action.tag) {
+    titleRow.appendChild(el("span", action.tag, { class: "sim-action-tag" }));
+  }
+  textWrap.appendChild(titleRow);
+  textWrap.appendChild(el("div", action.desc, { class: "sim-action-desc" }));
+  leftWrap.appendChild(textWrap);
+  item.appendChild(leftWrap);
+
+  const toggleWrap = el("div", null, { class: "sim-switch-wrap" });
+  const cb = el("input", null, { type: "checkbox", class: "sim-switch-input" });
+  cb.name = action.id;
+  if (idx === 1 || idx === 2) {
+    cb.checked = true;
+    item.classList.add("active");
+  }
+
+  cb.addEventListener("change", () => {
+    if (cb.checked) item.classList.add("active");
+    else item.classList.remove("active");
+    runSimulation(getState, apiEndpoint);
+  });
+
+  const slider = el("span", null, { class: "sim-switch-slider", "aria-hidden": "true" });
+  toggleWrap.appendChild(cb);
+  toggleWrap.appendChild(slider);
+  item.appendChild(toggleWrap);
+  return item;
+}
+
 /**
  * Render simulator action toggles.
  * @param {() => {location: any, profile: any, assessment: any, lang: string}} getState
@@ -26,48 +64,7 @@ export function renderSimActions(getState, apiEndpoint = "/api/simulate") {
   container.textContent = "";
 
   SIM_ACTIONS.forEach((action, idx) => {
-    const item = el("label", null, { class: "sim-action-item" });
-
-    const leftWrap = el("div", null, { class: "sim-item-left" });
-    leftWrap.appendChild(el("span", action.icon || "⚡", { class: "sim-item-icon" }));
-
-    const textWrap = el("div", null, { class: "sim-item-text" });
-    const titleRow = el("div", null, { class: "sim-title-row" });
-    titleRow.appendChild(el("span", action.label, { class: "sim-action-label" }));
-    if (action.tag) {
-      titleRow.appendChild(el("span", action.tag, { class: "sim-action-tag" }));
-    }
-    textWrap.appendChild(titleRow);
-    textWrap.appendChild(el("div", action.desc, { class: "sim-action-desc" }));
-    leftWrap.appendChild(textWrap);
-    item.appendChild(leftWrap);
-
-    // Toggle switch
-    const toggleWrap = el("div", null, { class: "sim-switch-wrap" });
-    const cb = el("input", null, { type: "checkbox", class: "sim-switch-input" });
-    cb.name = action.id;
-    // Default check induction and metro for instant high-impact demo
-    if (idx === 1 || idx === 2) {
-      cb.checked = true;
-      item.classList.add("active");
-    }
-
-    const updateItemActive = () => {
-      if (cb.checked) item.classList.add("active");
-      else item.classList.remove("active");
-    };
-
-    cb.addEventListener("change", () => {
-      updateItemActive();
-      runSimulation(getState, apiEndpoint);
-    });
-
-    const slider = el("span", null, { class: "sim-switch-slider", "aria-hidden": "true" });
-    toggleWrap.appendChild(cb);
-    toggleWrap.appendChild(slider);
-    item.appendChild(toggleWrap);
-
-    container.appendChild(item);
+    container.appendChild(_createSimActionItem(action, idx, getState, apiEndpoint));
   });
 
   initPresets(getState, apiEndpoint);
@@ -130,6 +127,50 @@ export function initPresets(getState, apiEndpoint) {
   });
 }
 
+function _renderSimComparisonHero(beforeDose, afterDose) {
+  const compBeforeVal = $("#comp-before-val");
+  if (compBeforeVal) compBeforeVal.textContent = String(Math.round(beforeDose));
+  const compBeforeCigs = $("#comp-before-cigs");
+  if (compBeforeCigs) compBeforeCigs.textContent = `≈ ${(beforeDose / 22).toFixed(1)} cigs/day equiv`;
+
+  const compAfterVal = $("#comp-after-val");
+  if (compAfterVal) compAfterVal.textContent = String(Math.round(afterDose));
+  const compAfterCigs = $("#comp-after-cigs");
+  if (compAfterCigs) compAfterCigs.textContent = `≈ ${(afterDose / 22).toFixed(1)} cigs/day equiv`;
+
+  const reductionPct = beforeDose > 0 ? Math.max(0, Math.round(((beforeDose - afterDose) / beforeDose) * 100)) : 0;
+  const reductionVal = $("#sim-reduction-pct");
+  if (reductionVal) reductionVal.textContent = `${reductionPct}%`;
+
+  const compBarAfter = $("#comp-bar-after");
+  if (compBarAfter) {
+    const pctWidth = beforeDose > 0 ? Math.max(12, Math.min(100, Math.round((afterDose / beforeDose) * 100))) : 40;
+    compBarAfter.style.width = `${pctWidth}%`;
+  }
+}
+
+function _renderSimMetricsGrid(beforeDose, afterDose, co2Saved, equivKm) {
+  const bDoseEl = $("#sim-before-dose");
+  if (bDoseEl) bDoseEl.textContent = beforeDose.toFixed(1);
+  const aDoseEl = $("#sim-after-dose");
+  if (aDoseEl) aDoseEl.textContent = afterDose.toFixed(1);
+  const co2El = $("#sim-co2-saved");
+  if (co2El) co2El.textContent = co2Saved.toFixed(1);
+  const kmEl = $("#sim-equiv-km");
+  if (kmEl) kmEl.textContent = equivKm.toFixed(0);
+}
+
+function _renderSimAssumptions(data) {
+  const formulaEl = $("#sim-formula");
+  if (formulaEl && data.formula) formulaEl.textContent = data.formula;
+
+  const assumptionsList = $("#sim-assumptions");
+  if (assumptionsList && Array.isArray(data.assumptions)) {
+    assumptionsList.textContent = "";
+    data.assumptions.forEach((a) => assumptionsList.appendChild(el("li", a)));
+  }
+}
+
 /**
  * Run simulation request and update results card, chart, and metrics.
  * @param {() => {location: any, profile: any, assessment: any, lang: string}} getState
@@ -140,10 +181,7 @@ export async function runSimulation(getState, apiEndpoint = "/api/simulate") {
   if (!state.location || !state.profile) return;
 
   const checked = $$('#sim-actions input[type=checkbox]:checked');
-  const actions = Array.from(checked).map((cb) => ({
-    action_id: cb.name,
-    enabled: true,
-  }));
+  const actions = Array.from(checked).map((cb) => ({ action_id: cb.name, enabled: true }));
 
   try {
     const outdoorPm25 = Number(state.assessment?.current_pm25 ?? 120.0);
@@ -166,48 +204,10 @@ export async function runSimulation(getState, apiEndpoint = "/api/simulate") {
     const equivKm = Number(data.equivalent_km_not_driven ?? 0);
 
     show($("#sim-results"));
-
-    // Comparison Hero Update
-    const compBeforeVal = $("#comp-before-val");
-    if (compBeforeVal) compBeforeVal.textContent = String(Math.round(beforeDose));
-    const compBeforeCigs = $("#comp-before-cigs");
-    if (compBeforeCigs) compBeforeCigs.textContent = `≈ ${(beforeDose / 22).toFixed(1)} cigs/day equiv`;
-
-    const compAfterVal = $("#comp-after-val");
-    if (compAfterVal) compAfterVal.textContent = String(Math.round(afterDose));
-    const compAfterCigs = $("#comp-after-cigs");
-    if (compAfterCigs) compAfterCigs.textContent = `≈ ${(afterDose / 22).toFixed(1)} cigs/day equiv`;
-
-    const reductionPct = beforeDose > 0 ? Math.max(0, Math.round(((beforeDose - afterDose) / beforeDose) * 100)) : 0;
-    const reductionVal = $("#sim-reduction-pct");
-    if (reductionVal) reductionVal.textContent = `${reductionPct}%`;
-
-    const compBarAfter = $("#comp-bar-after");
-    if (compBarAfter) {
-      const pctWidth = beforeDose > 0 ? Math.max(12, Math.min(100, Math.round((afterDose / beforeDose) * 100))) : 40;
-      compBarAfter.style.width = `${pctWidth}%`;
-    }
-
-    // 4 Metrics Grid Update
-    const bDoseEl = $("#sim-before-dose");
-    if (bDoseEl) bDoseEl.textContent = beforeDose.toFixed(1);
-    const aDoseEl = $("#sim-after-dose");
-    if (aDoseEl) aDoseEl.textContent = afterDose.toFixed(1);
-    const co2El = $("#sim-co2-saved");
-    if (co2El) co2El.textContent = co2Saved.toFixed(1);
-    const kmEl = $("#sim-equiv-km");
-    if (kmEl) kmEl.textContent = equivKm.toFixed(0);
-
+    _renderSimComparisonHero(beforeDose, afterDose);
+    _renderSimMetricsGrid(beforeDose, afterDose, co2Saved, equivKm);
     drawSimChart(beforeDose, afterDose);
-
-    const formulaEl = $("#sim-formula");
-    if (formulaEl && data.formula) formulaEl.textContent = data.formula;
-
-    const assumptionsList = $("#sim-assumptions");
-    if (assumptionsList && Array.isArray(data.assumptions)) {
-      assumptionsList.textContent = "";
-      data.assumptions.forEach((a) => assumptionsList.appendChild(el("li", a)));
-    }
+    _renderSimAssumptions(data);
   } catch (e) {
     console.error("Simulation error:", e);
   }

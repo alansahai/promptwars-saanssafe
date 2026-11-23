@@ -1,13 +1,13 @@
 /**
  * SaansSafe — Grounded Gemini Chat Controller (ES Module)
  * Conversational air quality assistant grounded strictly in local meteorology and user profile.
- * Sanitizes markdown safely with whitelist DOM constructs.
+ * Sanitizes markdown safely with whitelist DOM constructs. Zero innerHTML.
  */
 
 import { $, el } from "./dom.js?v=20261122_v4_ultracard";
 
 /**
- * Format markdown into safe sanitized HTML for assistant responses.
+ * Format markdown into safe sanitized HTML string for testing and contract compliance.
  * @param {string} text Raw text with markdown formatting
  * @returns {string} Sanitized HTML
  */
@@ -25,6 +25,49 @@ export function formatMarkdown(text) {
   html = html.replace(/(<li>.*?<\/li>)/gs, "<ul class='chat-list'>$1</ul>");
   html = html.replace(/\n\n/g, "<p></p>").replace(/\n/g, "<br>");
   return html;
+}
+
+function _appendFormattedSpans(container, text) {
+  const tokens = text.split(/(\*\*.*?\*\*|\*.*?\*)/);
+  tokens.forEach((token) => {
+    if (!token) return;
+    if (token.startsWith("**") && token.endsWith("**") && token.length > 4) {
+      container.appendChild(el("strong", token.slice(2, -2)));
+    } else if (token.startsWith("*") && token.endsWith("*") && token.length > 2) {
+      container.appendChild(el("em", token.slice(1, -1)));
+    } else {
+      container.appendChild(document.createTextNode(token));
+    }
+  });
+}
+
+function _renderMarkdownInto(parentEl, text) {
+  if (!text) return;
+  const lines = text.split("\n");
+  let currentList = null;
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      currentList = null;
+      return;
+    }
+    if (trimmed.startsWith("• ") || trimmed.startsWith("- ")) {
+      if (!currentList) {
+        currentList = el("ul", null, { class: "chat-list" });
+        parentEl.appendChild(currentList);
+      }
+      const itemText = trimmed.replace(/^[•\-]\s*/, "");
+      const li = el("li");
+      _appendFormattedSpans(li, itemText);
+      currentList.appendChild(li);
+    } else {
+      currentList = null;
+      const p = el("p");
+      _appendFormattedSpans(p, trimmed);
+      parentEl.appendChild(p);
+    }
+  });
 }
 
 /**
@@ -75,11 +118,35 @@ export function appendAssistantMessage(text) {
   bubble.appendChild(header);
 
   const content = el("div", null, { class: "bubble-content" });
-  content.innerHTML = formatMarkdown(text);
+  _renderMarkdownInto(content, text);
   bubble.appendChild(content);
 
   container.appendChild(bubble);
   container.scrollTop = container.scrollHeight;
+}
+
+function _createTypingBubble() {
+  const bubble = el("div", null, { class: "chat-bubble assistant typing-bubble" });
+  const dots = el("div", null, { class: "typing-dots" });
+  dots.appendChild(el("span"));
+  dots.appendChild(el("span"));
+  dots.appendChild(el("span"));
+  bubble.appendChild(dots);
+  return bubble;
+}
+
+async function _postChatMessage(apiEndpoint, state, msg) {
+  return fetch(apiEndpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      location: state.location,
+      profile: { ...state.profile, language: state.lang },
+      history: state.chatHistory.slice(-6),
+      message: msg,
+      assessment_context: state.assessment || {},
+    }),
+  });
 }
 
 /**
@@ -98,12 +165,7 @@ export async function sendChat(getState, apiEndpoint = "/api/chat") {
   input.value = "";
   state.chatHistory.push({ role: "user", content: msg });
 
-  const typingBubble = el("div", null, { class: "chat-bubble assistant typing-bubble" });
-  typingBubble.innerHTML = `
-    <div class="typing-dots">
-      <span></span><span></span><span></span>
-    </div>
-  `;
+  const typingBubble = _createTypingBubble();
   const container = $("#chat-messages");
   if (container) {
     container.appendChild(typingBubble);
@@ -111,19 +173,8 @@ export async function sendChat(getState, apiEndpoint = "/api/chat") {
   }
 
   try {
-    const res = await fetch(apiEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        location: state.location,
-        profile: { ...state.profile, language: state.lang },
-        history: state.chatHistory.slice(-6),
-        message: msg,
-        assessment_context: state.assessment || {},
-      }),
-    });
+    const res = await _postChatMessage(apiEndpoint, state, msg);
     typingBubble.remove();
-
     if (!res.ok) {
       appendAssistantMessage("⚠️ I could not process that request right now. Please try again.");
       return;

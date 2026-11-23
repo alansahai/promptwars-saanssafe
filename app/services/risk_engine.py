@@ -98,56 +98,35 @@ def _compute_base_score(us_aqi: float, pm25: float) -> tuple[float, RiskReason]:
     return base, reason
 
 
-def _compute_vulnerability_multiplier(
+def _check_demographic_vulnerability(
     profile: HouseholdProfile,
 ) -> tuple[float, list[RiskReason]]:
-    """Compute vulnerability multiplier (1.0–1.6, capped).
-
-    Args:
-        profile: Household profile.
-
-    Returns:
-        Tuple of (multiplier, list_of_reasons).
-    """
+    """Assess age and pregnancy demographic vulnerabilities."""
     multiplier = 1.0
     reasons: list[RiskReason] = []
 
     if profile.infants_children > 0:
         multiplier = max(multiplier, 1.3)
-        reasons.append(
-            RiskReason(
-                factor="vulnerable_children",
-                weight=0.3,
-                description=(
-                    f"{profile.infants_children} child(ren) under 12 in household. "
-                    "Children breathe more air per body weight and have developing lungs."
-                ),
-            )
-        )
+        msg = f"{profile.infants_children} child(ren) under 12 in household. Children breathe more air per body weight."
+        reasons.append(RiskReason(factor="vulnerable_children", weight=0.3, description=msg))
     if profile.elderly > 0:
         multiplier = max(multiplier, 1.25)
-        reasons.append(
-            RiskReason(
-                factor="vulnerable_elderly",
-                weight=0.25,
-                description=(
-                    f"{profile.elderly} elderly member(s). "
-                    "Older adults have reduced respiratory reserve."
-                ),
-            )
-        )
+        msg = f"{profile.elderly} elderly member(s). Older adults have reduced respiratory reserve."
+        reasons.append(RiskReason(factor="vulnerable_elderly", weight=0.25, description=msg))
     if profile.pregnant:
         multiplier = max(multiplier, 1.3)
-        reasons.append(
-            RiskReason(
-                factor="vulnerable_pregnant",
-                weight=0.3,
-                description=(
-                    "Pregnant household member. PM2.5 exposure is linked to "
-                    "preterm birth and low birth weight."
-                ),
-            )
-        )
+        msg = "Pregnant household member. PM2.5 exposure is linked to preterm birth and low birth weight."
+        reasons.append(RiskReason(factor="vulnerable_pregnant", weight=0.3, description=msg))
+    return multiplier, reasons
+
+
+def _check_medical_vulnerability(
+    profile: HouseholdProfile,
+) -> tuple[float, list[RiskReason]]:
+    """Assess chronic respiratory and cardiovascular pre-existing conditions."""
+    multiplier = 1.0
+    reasons: list[RiskReason] = []
+
     if profile.has_asthma_copd:
         multiplier = max(multiplier, 1.5)
         reasons.append(
@@ -172,32 +151,36 @@ def _compute_vulnerability_multiplier(
                 ),
             )
         )
-    # Cap total multiplier to prevent extreme compounding
-    multiplier = min(multiplier, 1.6)
     return multiplier, reasons
 
 
-def _compute_exposure_modifier(
+def _compute_vulnerability_multiplier(
     profile: HouseholdProfile,
 ) -> tuple[float, list[RiskReason]]:
-    """Compute additive exposure modifier (0–20) from home and commute.
+    """Compute vulnerability multiplier (1.0–1.6, capped).
 
     Args:
         profile: Household profile.
 
     Returns:
-        Tuple of (modifier, reasons).
+        Tuple of (multiplier, list_of_reasons).
     """
-    modifier = 0.0
-    reasons: list[RiskReason] = []
+    demo_mult, demo_reasons = _check_demographic_vulnerability(profile)
+    med_mult, med_reasons = _check_medical_vulnerability(profile)
+    multiplier = min(1.6, max(demo_mult, med_mult))
+    return multiplier, demo_reasons + med_reasons
 
-    # High-exposure commute modes (open-air)
+
+def _compute_commute_modifier(
+    profile: HouseholdProfile,
+) -> tuple[float, list[RiskReason]]:
+    """Compute exposure adjustment based on commute mode and distance."""
     high_exposure_modes = {"walk", "cycle", "two_wheeler", "auto"}
     low_exposure_modes = {"metro", "car"}
+    reasons: list[RiskReason] = []
 
     if profile.commute_mode in high_exposure_modes and profile.commute_days_per_week > 0:
         commute_add = min(10.0, profile.commute_distance_km * 0.3)
-        modifier += commute_add
         reasons.append(
             RiskReason(
                 factor="open_air_commute",
@@ -209,9 +192,9 @@ def _compute_exposure_modifier(
                 ),
             )
         )
-    elif profile.commute_mode in low_exposure_modes and profile.commute_days_per_week > 0:
-        # Enclosed vehicle reduces exposure
-        modifier -= 2.0
+        return commute_add, reasons
+
+    if profile.commute_mode in low_exposure_modes and profile.commute_days_per_week > 0:
         reasons.append(
             RiskReason(
                 factor="enclosed_commute",
@@ -222,63 +205,62 @@ def _compute_exposure_modifier(
                 ),
             )
         )
+        return -2.0, reasons
+
+    return 0.0, reasons
+
+
+def _check_cooking_fuel(fuel: str) -> tuple[float, RiskReason | None]:
+    """Check indoor exposure penalty based on domestic cooking fuel."""
+    if fuel == "firewood_biomass":
+        msg = "Biomass/firewood cooking produces very high indoor PM2.5 (200–1000 µg/m³ near stove)."
+        return 8.0, RiskReason(factor="biomass_cooking", weight=8.0, description=msg)
+    if fuel == "lpg":
+        msg = "LPG combustion adds moderate indoor PM2.5 and NO2. Kitchen exhaust use greatly reduces this."
+        return 2.0, RiskReason(factor="lpg_cooking", weight=2.0, description=msg)
+    return 0.0, None
+
+
+def _compute_indoor_modifier(
+    profile: HouseholdProfile,
+) -> tuple[float, list[RiskReason]]:
+    """Compute exposure adjustment from indoor filtration and domestic activities."""
+    mod = 0.0
+    reasons: list[RiskReason] = []
 
     if not profile.has_purifier:
-        purifier_add = 5.0
-        modifier += purifier_add
-        reasons.append(
-            RiskReason(
-                factor="no_air_purifier",
-                weight=purifier_add,
-                description=(
-                    "No air purifier: indoor PM2.5 tracks outdoor levels closely. "
-                    "Infiltration factor ~0.6–0.75× outdoor concentration."
-                ),
-            )
-        )
+        mod += 5.0
+        msg = "No air purifier: indoor PM2.5 tracks outdoor levels closely. Infiltration factor ~0.6–0.75×."
+        reasons.append(RiskReason(factor="no_air_purifier", weight=5.0, description=msg))
 
-    if profile.cooking_fuel == "firewood_biomass":
-        cooking_add = 8.0
-        modifier += cooking_add
-        reasons.append(
-            RiskReason(
-                factor="biomass_cooking",
-                weight=cooking_add,
-                description=(
-                    "Biomass/firewood cooking produces very high indoor PM2.5 "
-                    "(200–1000 µg/m³ near the stove). This is the most significant "
-                    "indoor pollution source."
-                ),
-            )
-        )
-    elif profile.cooking_fuel == "lpg":
-        modifier += 2.0
-        reasons.append(
-            RiskReason(
-                factor="lpg_cooking",
-                weight=2.0,
-                description=(
-                    "LPG combustion adds moderate indoor PM2.5 and NO2. "
-                    "Kitchen exhaust use greatly reduces this impact."
-                ),
-            )
-        )
+    fuel_mod, fuel_reason = _check_cooking_fuel(profile.cooking_fuel)
+    if fuel_reason:
+        mod += fuel_mod
+        reasons.append(fuel_reason)
 
     if profile.morning_walker_jogger:
-        walk_add = 5.0
-        modifier += walk_add
-        reasons.append(
-            RiskReason(
-                factor="morning_outdoor_exercise",
-                weight=walk_add,
-                description=(
-                    "Morning outdoor exercise increases breathing rate 3–5×, "
-                    "dramatically increasing PM2.5 inhaled dose during peak smog hours."
-                ),
-            )
-        )
+        mod += 5.0
+        msg = "Morning outdoor exercise increases breathing rate 3–5×, increasing PM2.5 dose during smog hours."
+        reasons.append(RiskReason(factor="morning_outdoor_exercise", weight=5.0, description=msg))
 
-    return max(-5.0, modifier), reasons  # floor at -5 to avoid negative total
+    return mod, reasons
+
+
+def _compute_exposure_modifier(
+    profile: HouseholdProfile,
+) -> tuple[float, list[RiskReason]]:
+    """Compute additive exposure modifier (-5 to +20) from commute and indoor factors.
+
+    Args:
+        profile: Household profile.
+
+    Returns:
+        Tuple of (modifier, reasons).
+    """
+    commute_mod, commute_reasons = _compute_commute_modifier(profile)
+    indoor_mod, indoor_reasons = _compute_indoor_modifier(profile)
+    total_mod = max(-5.0, commute_mod + indoor_mod)
+    return total_mod, commute_reasons + indoor_reasons
 
 
 def _check_inversion(
@@ -323,6 +305,52 @@ def _check_inversion(
     return False, None
 
 
+def _adjust_for_forecast_peak(
+    base: float, us_aqi: float, forecast_peak_aqi: float | None
+) -> tuple[float, RiskReason | None]:
+    """Calculate base adjustment when forecast 24h peak exceeds current AQI."""
+    if forecast_peak_aqi is not None and forecast_peak_aqi > us_aqi:
+        peak_bonus = min(10.0, (forecast_peak_aqi - us_aqi) / 300.0 * 20.0)
+        adjusted_base = min(70.0, base + peak_bonus)
+        reason = RiskReason(
+            factor="forecast_peak",
+            weight=round(peak_bonus, 1),
+            description=(
+                f"24-hour forecast peak AQI {forecast_peak_aqi:.0f} is higher than current. "
+                "Planning ahead for the peak is recommended."
+            ),
+        )
+        return adjusted_base, reason
+    return base, None
+
+
+def _calculate_final_score(
+    base: float, vuln_mult: float, exposure_mod: float, inversion: bool
+) -> float:
+    """Combine components into clamped [0, 100] risk score."""
+    inversion_bonus = 8.0 if inversion else 0.0
+    raw_score = (base * vuln_mult) + exposure_mod + inversion_bonus
+    return round(max(0.0, min(100.0, raw_score)), 1)
+
+
+def _collect_reasons(
+    aqi_reason: RiskReason,
+    peak_reason: RiskReason | None,
+    vuln_reasons: list[RiskReason],
+    exposure_reasons: list[RiskReason],
+    inv_reason: RiskReason | None,
+) -> list[RiskReason]:
+    """Collate ordered risk reasons for the assessment response."""
+    reasons = [aqi_reason]
+    if peak_reason:
+        reasons.append(peak_reason)
+    reasons.extend(vuln_reasons)
+    reasons.extend(exposure_reasons)
+    if inv_reason:
+        reasons.append(inv_reason)
+    return reasons
+
+
 def compute_risk(
     us_aqi: float,
     pm25: float,
@@ -333,66 +361,14 @@ def compute_risk(
     temp_c: float | None = None,
     forecast_peak_aqi: float | None = None,
 ) -> RiskResult:
-    """Compute personal risk score for the household given current conditions.
+    """Compute personal risk score for the household given current conditions."""
+    base, aqi_r = _compute_base_score(us_aqi, pm25)
+    base, peak_r = _adjust_for_forecast_peak(base, us_aqi, forecast_peak_aqi)
+    vuln_mult, vuln_r = _compute_vulnerability_multiplier(profile)
+    exposure_mod, exp_r = _compute_exposure_modifier(profile)
+    inversion, inv_r = _check_inversion(wind_speed_ms, boundary_layer_m, humidity_pct, temp_c)
 
-    This is a PURE function: deterministic, no I/O, fully testable.
-
-    Args:
-        us_aqi: Current US AQI reading.
-        pm25: Current PM2.5 concentration in µg/m³.
-        profile: Household profile with vulnerability and exposure info.
-        wind_speed_ms: Optional current wind speed in m/s.
-        boundary_layer_m: Optional boundary layer height in metres.
-        humidity_pct: Optional relative humidity %.
-        temp_c: Optional temperature in °C.
-        forecast_peak_aqi: Optional 24-hour peak AQI from forecast.
-
-    Returns:
-        A RiskResult with score, level, colour, icon, and reasons list.
-    """
-    all_reasons: list[RiskReason] = []
-
-    # 1. Base AQI score (0–60)
-    base, aqi_reason = _compute_base_score(us_aqi, pm25)
-    all_reasons.append(aqi_reason)
-
-    # 2. Forecast peak adjustment (up to +10 to base)
-    if forecast_peak_aqi is not None and forecast_peak_aqi > us_aqi:
-        peak_bonus = min(10.0, (forecast_peak_aqi - us_aqi) / 300.0 * 20.0)
-        base = min(70.0, base + peak_bonus)
-        all_reasons.append(
-            RiskReason(
-                factor="forecast_peak",
-                weight=round(peak_bonus, 1),
-                description=(
-                    f"24-hour forecast peak AQI {forecast_peak_aqi:.0f} is higher than current. "
-                    "Planning ahead for the peak is recommended."
-                ),
-            )
-        )
-
-    # 3. Vulnerability multiplier
-    vuln_mult, vuln_reasons = _compute_vulnerability_multiplier(profile)
-    all_reasons.extend(vuln_reasons)
-
-    # 4. Exposure modifier
-    exposure_mod, exposure_reasons = _compute_exposure_modifier(profile)
-    all_reasons.extend(exposure_reasons)
-
-    # 5. Inversion/stagnation
-    inversion, inv_reason = _check_inversion(wind_speed_ms, boundary_layer_m, humidity_pct, temp_c)
-    if inv_reason:
-        all_reasons.append(inv_reason)
-
-    # 6. Combine: (base × vulnerability) + exposure + inversion bonus
-    inversion_bonus = 8.0 if inversion else 0.0
-    raw_score = (base * vuln_mult) + exposure_mod + inversion_bonus
-
-    # 7. Clamp to [0, 100]
-    final_score = max(0.0, min(100.0, raw_score))
-    final_score = round(final_score, 1)
-
-    # 8. Map to level
+    final_score = _calculate_final_score(base, vuln_mult, exposure_mod, inversion)
     level = _score_to_level(final_score)
     meta = LEVEL_META[level]
 
@@ -401,6 +377,6 @@ def compute_risk(
         risk_level=level,
         risk_color=meta["color"],
         risk_icon=meta["icon"],
-        risk_reasons=all_reasons,
+        risk_reasons=_collect_reasons(aqi_r, peak_r, vuln_r, exp_r, inv_r),
         inversion_flag=inversion,
     )

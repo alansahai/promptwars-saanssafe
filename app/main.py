@@ -25,7 +25,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
-from app.config import get_settings
+from app.config import Settings, get_settings
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -70,6 +70,66 @@ def _is_rate_limited(ip: str, limit: int, window: int = 60) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _setup_base_middleware(app: FastAPI, settings: Settings) -> None:
+    """Attach GZip compression and CORS policy middleware."""
+    app.add_middleware(GZipMiddleware, minimum_size=500)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.allowed_origins,
+        allow_credentials=False,
+        allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type", "Accept"],
+    )
+
+
+def _setup_security_middleware(app: FastAPI, settings: Settings) -> None:
+    """Register rate limiting, body size enforcement, and security headers middleware."""
+
+    @app.middleware("http")
+    async def security_middleware(request: Request, call_next: Callable) -> Response:
+        client_ip = request.client.host if request.client else "unknown"
+        if _is_rate_limited(client_ip, settings.rate_limit_per_minute):
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please wait a moment."},
+            )
+
+        if request.method == "POST":
+            content_length = request.headers.get("content-length")
+            if content_length and int(content_length) > settings.max_body_size_bytes:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request body too large."},
+                )
+
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "geolocation=(self)"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "connect-src 'self'; "
+            "img-src 'self' data:; "
+            "frame-ancestors 'none';"
+        )
+        return response
+
+
+def _mount_static_files(app: FastAPI) -> None:
+    """Mount static frontend assets when not running in serverless environment."""
+    if not os.environ.get("VERCEL"):
+        public_dir = os.path.join(os.path.dirname(__file__), "..", "public")
+        if os.path.isdir(public_dir):
+            try:
+                app.mount("/", StaticFiles(directory=public_dir, html=True), name="static")
+                logger.info("Serving static files from %s", public_dir)
+            except Exception as e:
+                logger.warning("Could not mount static files: %s", e)
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -87,71 +147,10 @@ def create_app() -> FastAPI:
         openapi_url="/api/openapi.json" if settings.environment != "production" else None,
     )
 
-    # --- GZip compression ---
-    app.add_middleware(GZipMiddleware, minimum_size=500)
-
-    # --- CORS ---
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.allowed_origins,
-        allow_credentials=False,
-        allow_methods=["GET", "POST"],
-        allow_headers=["Content-Type", "Accept"],
-    )
-
-    # --- Security headers + rate limiting + body size (single middleware) ---
-    @app.middleware("http")
-    async def security_middleware(request: Request, call_next: Callable) -> Response:
-        """Apply security headers, rate limiting, and body size enforcement."""
-        # Rate limiting
-        client_ip = request.client.host if request.client else "unknown"
-        if _is_rate_limited(client_ip, settings.rate_limit_per_minute):
-            return JSONResponse(
-                status_code=429,
-                content={"detail": "Too many requests. Please wait a moment."},
-            )
-
-        # Body size limit (for POST requests)
-        if request.method == "POST":
-            content_length = request.headers.get("content-length")
-            if content_length and int(content_length) > settings.max_body_size_bytes:
-                return JSONResponse(
-                    status_code=413,
-                    content={"detail": "Request body too large."},
-                )
-
-        response = await call_next(request)
-
-        # Security headers (applied to all responses)
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-        response.headers["Permissions-Policy"] = "geolocation=(self)"
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "connect-src 'self'; "
-            "img-src 'self' data:; "
-            "frame-ancestors 'none';"
-        )
-
-        return response
-
-    # --- Include API routes ---
+    _setup_base_middleware(app, settings)
+    _setup_security_middleware(app, settings)
     app.include_router(router)
-
-    # --- Static files ---
-    # In local dev or standalone server, serve public/ directly from FastAPI.
-    # On Vercel, static files are served at the CDN edge before reaching Python.
-    if not os.environ.get("VERCEL"):
-        public_dir = os.path.join(os.path.dirname(__file__), "..", "public")
-        if os.path.isdir(public_dir):
-            try:
-                app.mount("/", StaticFiles(directory=public_dir, html=True), name="static")
-                logger.info("Serving static files from %s", public_dir)
-            except Exception as e:
-                logger.warning("Could not mount static files: %s", e)
+    _mount_static_files(app)
 
     return app
 

@@ -171,6 +171,79 @@ def generate_assessment_narrative(
         return None
 
 
+def _check_emergency_escalation(user_message: str) -> str | None:
+    """Escalate immediately if user reports acute emergency symptoms."""
+    lower_msg = user_message.lower()
+    if any(kw in lower_msg for kw in SEVERE_SYMPTOM_KEYWORDS):
+        return (
+            "⚠️ This sounds like a medical emergency. "
+            "Please call emergency services (112 in India) immediately. "
+            "Do not wait for an online assistant in an emergency."
+        )
+    return None
+
+
+def _build_chat_prompt(language: str, context_json: str) -> str:
+    """Build grounded system prompt with language instruction and safety constraints."""
+    lang_instruction = LANGUAGE_INSTRUCTIONS.get(language, LANGUAGE_INSTRUCTIONS["en"])
+    return f"""You are SaansSafe, a helpful air quality assistant for Indian families.
+You are ONLY able to discuss air quality, health precautions related to air pollution,
+outdoor timing, indoor air improvement, and sustainable transport choices.
+For off-topic questions, politely redirect to air quality topics.
+{lang_instruction}
+ALWAYS add: "This is informational only. Consult a doctor for medical advice."
+
+Grounding context (use only this data, do not invent facts):
+{context_json}
+"""
+
+
+def _build_chat_contents(types: Any, history: list[dict], user_message: str) -> list[Any]:
+    """Construct Content objects for the Gemini conversational turn."""
+    contents: list[Any] = []
+    for turn in history[-12:]:
+        role = "user" if turn.get("role") == "user" else "model"
+        contents.append(
+            types.Content(
+                role=role,
+                parts=[types.Part(text=turn.get("content", ""))],
+            )
+        )
+    delimited = delimit_user_text(user_message, "USER_QUESTION")
+    contents.append(
+        types.Content(
+            role="user",
+            parts=[types.Part(text=delimited)],
+        )
+    )
+    return contents
+
+
+def _call_gemini_chat(
+    client: Any,
+    model: str,
+    system_prompt: str,
+    contents: list[Any],
+) -> str | None:
+    """Execute Gemini generate_content call and return reply string."""
+    try:
+        from google.genai import types  # type: ignore[import]
+
+        response = client.models.generate_content(
+            model=model,
+            contents=contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                max_output_tokens=512,
+            ),
+        )
+        reply = response.text or ""
+        return cap_output(reply + MEDICAL_DISCLAIMER, max_length=3000)
+    except Exception as exc:
+        logger.warning("Gemini chat call failed: %s", exc)
+        return None
+
+
 def generate_chat_reply(
     user_message: str,
     history: list[dict],
@@ -192,71 +265,46 @@ def generate_chat_reply(
     if client is None:
         return None
 
-    # Check for severe symptoms → escalate immediately
-    lower_msg = user_message.lower()
-    if any(kw in lower_msg for kw in SEVERE_SYMPTOM_KEYWORDS):
-        return (
-            "⚠️ This sounds like a medical emergency. "
-            "Please call emergency services (112 in India) immediately. "
-            "Do not wait for an online assistant in an emergency."
-        )
+    escalation = _check_emergency_escalation(user_message)
+    if escalation is not None:
+        return escalation
+
+    from google.genai import types  # type: ignore[import]
 
     settings = get_settings()
-    lang_instruction = LANGUAGE_INSTRUCTIONS.get(language, LANGUAGE_INSTRUCTIONS["en"])
     context_json = json.dumps(assessment_context, ensure_ascii=False)
+    system_prompt = _build_chat_prompt(language, context_json)
+    contents = _build_chat_contents(types, history, user_message)
 
-    system_prompt = f"""You are SaansSafe, a helpful air quality assistant for Indian families.
-You are ONLY able to discuss air quality, health precautions related to air pollution,
-outdoor timing, indoor air improvement, and sustainable transport choices.
-For off-topic questions, politely redirect to air quality topics.
-{lang_instruction}
-ALWAYS add: "This is informational only. Consult a doctor for medical advice."
-
-Grounding context (use only this data, do not invent facts):
-{context_json}
-"""
-
-    # Build contents list: system + history + user message
-    try:
-        from google.genai import types  # type: ignore[import]
-
-        contents = []
-        # Add history (last MAX_HISTORY turns)
-        for turn in history[-12:]:
-            role = "user" if turn.get("role") == "user" else "model"
-            contents.append(
-                types.Content(
-                    role=role,
-                    parts=[types.Part(text=turn.get("content", ""))],
-                )
-            )
-        # Add current user message (delimited)
-        delimited = delimit_user_text(user_message, "USER_QUESTION")
-        contents.append(
-            types.Content(
-                role="user",
-                parts=[types.Part(text=delimited)],
-            )
-        )
-
-        response = client.models.generate_content(
-            model=settings.gemini_model,
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                max_output_tokens=512,
-            ),
-        )
-        reply = response.text or ""
-        return cap_output(reply + MEDICAL_DISCLAIMER, max_length=3000)
-    except Exception as exc:
-        logger.warning("Gemini chat call failed: %s", exc)
-        return None
+    return _call_gemini_chat(client, settings.gemini_model, system_prompt, contents)
 
 
 # ---------------------------------------------------------------------------
 # Fallback template functions (always return something useful)
 # ---------------------------------------------------------------------------
+
+
+def _get_fallback_headline_and_summary(
+    risk_level: str, aqi: float, city: str
+) -> tuple[str, str]:
+    """Retrieve templated headline and summary based on risk level."""
+    headline_map = {
+        "Low": f"Air quality is good in {city} today! 🌿",
+        "Moderate": f"Moderate smog in {city} — some precautions advised 😐",
+        "High": f"High pollution alert in {city} — protect your family ⚠️",
+        "Severe": f"Severe smog in {city} — minimise outdoor exposure ☣️",
+        "Emergency": f"🚨 Hazardous air in {city}! Emergency precautions needed",
+    }
+    summary_map = {
+        "Low": "Current air quality poses minimal risk. Good day for outdoor activities during daylight hours.",
+        "Moderate": f"AQI is {aqi:.0f}. Sensitive family members should limit prolonged outdoor exposure.",
+        "High": f"AQI is {aqi:.0f}. Restrict outdoor time for children, elderly, and those with health conditions.",
+        "Severe": f"AQI is {aqi:.0f}. Stay indoors as much as possible. Run air purifier if available.",
+        "Emergency": f"AQI is {aqi:.0f}. Hazardous conditions. Avoid all outdoor exposure.",
+    }
+    headline = headline_map.get(risk_level, f"AQI {aqi:.0f} in {city}")
+    summary = summary_map.get(risk_level, f"AQI is {aqi:.0f}. Take appropriate precautions.")
+    return headline, summary
 
 
 def fallback_assessment_narrative(context: dict, language: str = "en") -> dict:
@@ -273,24 +321,11 @@ def fallback_assessment_narrative(context: dict, language: str = "en") -> dict:
     aqi = context.get("current_aqi", 100)
     city = context.get("city_name", "your area")
 
-    headline_map = {
-        "Low": f"Air quality is good in {city} today! 🌿",
-        "Moderate": f"Moderate smog in {city} — some precautions advised 😐",
-        "High": f"High pollution alert in {city} — protect your family ⚠️",
-        "Severe": f"Severe smog in {city} — minimise outdoor exposure ☣️",
-        "Emergency": f"🚨 Hazardous air in {city}! Emergency precautions needed",
-    }
-    summary_map = {
-        "Low": "Current air quality poses minimal risk. Good day for outdoor activities during daylight hours.",
-        "Moderate": f"AQI is {aqi:.0f}. Sensitive family members should limit prolonged outdoor exposure.",
-        "High": f"AQI is {aqi:.0f}. Restrict outdoor time for children, elderly, and those with health conditions.",
-        "Severe": f"AQI is {aqi:.0f}. Stay indoors as much as possible. Run air purifier if available.",
-        "Emergency": f"AQI is {aqi:.0f}. Hazardous conditions. Avoid all outdoor exposure.",
-    }
+    headline, summary = _get_fallback_headline_and_summary(risk_level, aqi, city)
 
     return {
-        "headline": headline_map.get(risk_level, f"AQI {aqi:.0f} in {city}"),
-        "summary": summary_map.get(risk_level, f"AQI is {aqi:.0f}. Take appropriate precautions."),
+        "headline": headline,
+        "summary": summary,
         "family_tips": [
             "Check AQI before any outdoor activity.",
             "Wet-mop floors instead of dry sweeping.",

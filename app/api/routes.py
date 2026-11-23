@@ -23,7 +23,7 @@ from app.schemas import (
     SimulateRequest,
     SimulateResponse,
 )
-from app.services import air_data, llm, recommendations, risk_engine, routine_planner
+from app.services import air_data, llm, orchestrator
 from app.services.impact import simulate_impact
 from app.services.safety import sanitise_and_check
 
@@ -127,113 +127,9 @@ async def geocode(
 @router.post(
     "/assess", response_model=AssessmentResponse, tags=["assessment"], include_in_schema=False
 )
-async def assess(
-    body: AssessRequest,
-    settings: Settings = Depends(get_settings),
-) -> AssessmentResponse:
-    """Full household air quality assessment.
-
-    1. Fetch air quality + weather data in parallel.
-    2. Compute deterministic risk score.
-    3. Build hourly forecast and daily routine.
-    4. Get ranked indoor hacks and sustainable alternatives.
-    5. Call Gemini for narrative (or fall back to templates).
-
-    Args:
-        body: AssessRequest with location and household profile.
-        settings: Application configuration settings dependency.
-
-    Returns:
-        Full AssessmentResponse.
-
-    """
-    lat = body.location.lat
-    lon = body.location.lon
-    profile = body.profile
-
-    # 1. Fetch data
-    aqi_data, weather_data = await air_data.fetch_all_data(lat, lon)
-
-    # 2. Extract current conditions
-    current_hour = datetime.datetime.now().hour
-    conditions = air_data.extract_current_conditions(aqi_data, weather_data, hour=current_hour)
-
-    # 3. Compute risk
-    risk_result = risk_engine.compute_risk(
-        us_aqi=conditions["current_aqi"],
-        pm25=conditions["current_pm25"],
-        profile=profile,
-        wind_speed_ms=conditions.get("wind_speed_ms"),
-        boundary_layer_m=None,
-        humidity_pct=conditions.get("humidity_pct"),
-        temp_c=conditions.get("temp_c"),
-        forecast_peak_aqi=conditions.get("forecast_peak_aqi"),
-    )
-
-    # 4. Build hourly forecast
-    hourly = routine_planner.build_hourly_forecast(
-        conditions["us_aqi_24h"],
-        conditions["pm25_24h"],
-    )
-
-    # 5. Build daily routine
-    timeline = routine_planner.build_daily_routine(hourly, profile)
-
-    # 6. Indoor hacks and alternatives
-    hacks = recommendations.get_indoor_hacks(profile, risk_result.risk_level)
-    alternatives = recommendations.get_sustainable_alternatives(profile)
-
-    # 7. Build Gemini context
-    gemini_context = {
-        "city_name": body.location.city_name or "your area",
-        "risk_level": risk_result.risk_level,
-        "risk_score": risk_result.risk_score,
-        "current_aqi": conditions["current_aqi"],
-        "current_pm25": conditions["current_pm25"],
-        "inversion_flag": risk_result.inversion_flag,
-        "top_reasons": [r.description for r in risk_result.risk_reasons[:3]],
-        "profile_summary": {
-            "members": profile.adults + profile.infants_children + profile.elderly,
-            "has_children": profile.infants_children > 0,
-            "has_elderly": profile.elderly > 0,
-            "has_purifier": profile.has_purifier,
-            "commute_mode": profile.commute_mode,
-            "cooking_fuel": profile.cooking_fuel,
-        },
-    }
-
-    # 8. Gemini narrative (with fallback)
-    ai_narrative = await asyncio.to_thread(
-        llm.generate_assessment_narrative, gemini_context, language=profile.language
-    )
-    ai_generated = ai_narrative is not None
-    narrative = (
-        ai_narrative
-        if ai_narrative is not None
-        else llm.fallback_assessment_narrative(gemini_context, language=profile.language)
-    )
-
-    return AssessmentResponse(
-        ai_generated=ai_generated,
-        risk_score=risk_result.risk_score,
-        risk_level=risk_result.risk_level,
-        risk_color=risk_result.risk_color,
-        risk_icon=risk_result.risk_icon,
-        risk_reasons=[r.model_dump() for r in risk_result.risk_reasons],
-        current_aqi=conditions["current_aqi"],
-        current_pm25=conditions["current_pm25"],
-        current_pm10=conditions["current_pm10"],
-        inversion_flag=risk_result.inversion_flag,
-        headline=narrative["headline"],
-        summary=narrative["summary"],
-        family_tips=narrative["family_tips"],
-        kid_and_elder_notes=narrative["kid_and_elder_notes"],
-        motivational_nudge=narrative["motivational_nudge"],
-        hourly_forecast=[h.model_dump() for h in hourly],
-        timeline_tasks=list(timeline),
-        indoor_hacks=hacks,
-        sustainable_alternatives=alternatives,
-    )
+async def assess(body: AssessRequest) -> AssessmentResponse:
+    """Full household air quality assessment coordinated across services."""
+    return await orchestrator.run_full_assessment(body)
 
 
 # ---------------------------------------------------------------------------

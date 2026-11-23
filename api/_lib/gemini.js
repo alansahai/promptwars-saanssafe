@@ -16,6 +16,63 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
  * @property {string} motivational_nudge - Uplifting behavioral encouragement
  */
 
+function _getHiTemplate(locationName, roundAqi, risk_level) {
+  return {
+    headline: `${locationName} वायु गुणवत्ता: ${risk_level} जोखिम (AQI ${roundAqi})`,
+    summary: `वर्तमान वायु गुणवत्ता सूचकांक ${roundAqi} (${risk_level}) पर है। सूक्ष्म PM2.5 कण श्वसन तंत्र के लिए हानिकारक हैं।`,
+    family_tips: [
+      "सुबह 6-9 बजे बाहरी खिड़कियां बंद रखें जब स्मॉग जमीन के पास होता है।",
+      "बाहर निकलते समय N95 या FFP2 मास्क का अनिवार्य उपयोग करें।",
+      "घर में गीला पोछा लगाएं, सूखी झाड़ू लगाने से धूल उड़ती है।",
+    ],
+    kid_and_elder_notes: [
+      "बच्चे: बाहरी खेल दोपहर 12 बजे से 2 बजे के बीच ही सीमित रखें।",
+      "बुजुर्ग: सुबह की सैर स्थगित करें और श्वसन दवाएं पास रखें।",
+    ],
+    motivational_nudge: "खिड़कियां सील करने और सुरक्षित आवागमन जैसे छोटे बदलाव आज फेफड़ों की रक्षा करते हैं।",
+  };
+}
+
+function _getTaTemplate(locationName, roundAqi, risk_level) {
+  return {
+    headline: `${locationName} காற்று தரம்: ${risk_level} ஆபத்து (AQI ${roundAqi})`,
+    summary: `தற்போதைய காற்றுத் தரம் ${roundAqi} (${risk_level}) ஆக உள்ளது. நுண் துகள்கள் உங்கள் குடும்பத்தின் சுவாச நலனை பாதிக்கலாம்.`,
+    family_tips: [
+      "காலை வேளையில் வெளிப்புற காற்று உள்ளே நுழையாதவாறு கதவு ஜன்னல்களை மூடி வைக்கவும்.",
+      "வெளியே செல்லும்போது N95 முகக்கவசம் அணியவும்.",
+      "ஈர துணியால் தரையை துடைக்கவும், உலர்ந்த துடைப்பம் தூசியை கிளப்பும்.",
+    ],
+    kid_and_elder_notes: [
+      "குழந்தைகள்: கடுமையான வெளிப்புற விளையாட்டுகளை தவிர்க்கவும்.",
+      "முதியவர்கள்: காலை நேர நடைப்பயிற்சியை தவிர்க்கவும்.",
+    ],
+    motivational_nudge: "சாளரங்களை அடைப்பது மற்றும் பயண முறையை மாற்றுவது உங்கள் குடும்பத்தை பாதுகாக்கும்.",
+  };
+}
+
+function _getEnTemplate(locationName, roundAqi, risk_level) {
+  return {
+    headline: `${locationName} Air Quality Alert: ${risk_level} Risk (AQI ${roundAqi})`,
+    summary: `Current AQI is at ${roundAqi} (${risk_level} Risk). Elevated PM2.5 requires proactive protective measures today.`,
+    family_tips: [
+      "Seal exterior windows during early morning ground-inversion peaks.",
+      "Equip family members with well-sealed N95 masks for outdoor commutes.",
+      "Prefer damp-mopping over dry sweeping to prevent particle re-suspension.",
+    ],
+    kid_and_elder_notes: [
+      "Children: Restrict vigorous outdoor exertion to midday solar hours.",
+      "Elderly: Monitor blood pressure and keep prescribed inhalers easily accessible.",
+    ],
+    motivational_nudge: "Small daily routine adjustments like sealing window seams and swapping commute modes protect your lungs today.",
+  };
+}
+
+function _getFallbackTemplates(language, locationName, roundAqi, risk_level) {
+  if (language === "hi") return _getHiTemplate(locationName, roundAqi, risk_level);
+  if (language === "ta") return _getTaTemplate(locationName, roundAqi, risk_level);
+  return _getEnTemplate(locationName, roundAqi, risk_level);
+}
+
 /**
  * Build deterministic localized fallback narrative.
  *
@@ -27,57 +84,62 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
  * @returns {NarrativeResult}
  */
 export function getLocalFallbackNarrative(locationName, current_aqi, risk_level, inversion_flag, language) {
-  const isHi = language === "hi";
-  const isTa = language === "ta";
+  const roundAqi = Math.round(current_aqi);
+  return _getFallbackTemplates(language, locationName, roundAqi, risk_level);
+}
 
-  return {
-    headline: isHi
-      ? `${locationName} वायु गुणवत्ता: ${risk_level} जोखिम (AQI ${Math.round(current_aqi)})`
-      : isTa
-      ? `${locationName} காற்று தரம்: ${risk_level} ஆபத்து (AQI ${Math.round(current_aqi)})`
-      : `${locationName} Air Quality Alert: ${risk_level} Risk (AQI ${Math.round(current_aqi)})`,
-    summary: isHi
-      ? `वर्तमान वायु गुणवत्ता सूचकांक ${Math.round(current_aqi)} (${risk_level}) पर है। सूक्ष्म PM2.5 कण श्वसन तंत्र के लिए हानिकारक हैं।`
-      : isTa
-      ? `தற்போதைய காற்றுத் தரம் ${Math.round(current_aqi)} (${risk_level}) ஆக உள்ளது. நுண் துகள்கள் உங்கள் குடும்பத்தின் சுவாச நலனை பாதிக்கலாம்.`
-      : `Current AQI is at ${Math.round(current_aqi)} (${risk_level} Risk). Elevated PM2.5 requires proactive protective measures today.`,
-    family_tips: isHi
-      ? [
-          "सुबह 6-9 बजे बाहरी खिड़कियां बंद रखें जब स्मॉग जमीन के पास होता है।",
-          "बाहर निकलते समय N95 या FFP2 मास्क का अनिवार्य उपयोग करें।",
-          "घर में गीला पोछा लगाएं, सूखी झाड़ू लगाने से धूल उड़ती है।",
-        ]
-      : isTa
-      ? [
-          "காலை வேளையில் வெளிப்புற காற்று உள்ளே நுழையாதவாறு கதவு ஜன்னல்களை மூடி வைக்கவும்.",
-          "வெளியே செல்லும்போது N95 முகக்கவசம் அணியவும்.",
-          "ஈர துணியால் தரையை துடைக்கவும், உலர்ந்த துடைப்பம் தூசியை கிளப்பும்.",
-        ]
-      : [
-          "Seal exterior windows during early morning ground-inversion peaks.",
-          "Equip family members with well-sealed N95 masks for outdoor commutes.",
-          "Prefer damp-mopping over dry sweeping to prevent particle re-suspension.",
-        ],
-    kid_and_elder_notes: isHi
-      ? [
-          "बच्चे: बाहरी खेल दोपहर 12 बजे से 2 बजे के बीच ही सीमित रखें।",
-          "बुजुर्ग: सुबह की सैर स्थगित करें और श्वसन दवाएं पास रखें।",
-        ]
-      : isTa
-      ? [
-          "குழந்தைகள்: கடுமையான வெளிப்புற விளையாட்டுகளை தவிர்க்கவும்.",
-          "முதியவர்கள்: காலை நேர நடைப்பயிற்சியை தவிர்க்கவும்.",
-        ]
-      : [
-          "Children: Restrict vigorous outdoor exertion to midday solar hours.",
-          "Elderly: Monitor blood pressure and keep prescribed inhalers easily accessible.",
-        ],
-    motivational_nudge: isHi
-      ? "खिड़कियां सील करने और सुरक्षित आवागमन जैसे छोटे बदलाव आज फेफड़ों की रक्षा करते हैं।"
-      : isTa
-      ? "சாளரங்களை அடைப்பது மற்றும் பயண முறையை மாற்றுவது உங்கள் குடும்பத்தை பாதுகாக்கும்."
-      : "Small daily routine adjustments like sealing window seams and swapping commute modes protect your lungs today.",
-  };
+function _buildNarrativePrompt(location, current_aqi, current_pm25, risk_level, risk_score, inversion_flag, profile) {
+  const isHi = profile.language === "hi";
+  const isTa = profile.language === "ta";
+  return `You are SaansSafe, a warm, scientifically grounded air quality assistant for families in India.
+Generate a structured family smog navigation narrative in ${isHi ? "Hindi (हिन्दी)" : isTa ? "Tamil (தமிழ்)" : "English"}.
+Use ONLY the following factual context:
+- Location: ${location.name || "Delhi"}
+- Current AQI: ${Math.round(current_aqi)}
+- PM2.5: ${Math.round(current_pm25)} µg/m³
+- Risk Level: ${risk_level} (Score ${risk_score}/100)
+- Inversion Flag: ${inversion_flag}
+- Profile: ${JSON.stringify(profile)}
+
+Return a strict JSON object with these keys:
+{
+  "headline": "concise headline mentioning location and smog advice",
+  "summary": "2 sentences explaining air conditions and immediate household health priority",
+  "family_tips": ["tip 1", "tip 2", "tip 3"],
+  "kid_and_elder_notes": ["vital protective note for kids/elders"],
+  "motivational_nudge": "inspiring, positive closing thought"
+}`;
+}
+
+async function _fetchGeminiNarrative(apiKey, prompt) {
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(2500),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 350,
+            responseMimeType: "application/json",
+            thinkingConfig: { thinkingBudget: 0 },
+          },
+        }),
+      }
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    const rawJson = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!rawJson) return null;
+    const parsed = JSON.parse(rawJson);
+    return parsed.headline && parsed.summary && Array.isArray(parsed.family_tips) ? parsed : null;
+  } catch (err) {
+    console.warn("Gemini call timed out or failed, using local deterministic fallback:", err);
+    return null;
+  }
 }
 
 /**
@@ -100,76 +162,26 @@ export async function generateNarrative(location, current_aqi, current_pm25, ris
     return { narrative: cached.narrative, ai_generated: true };
   }
 
-  let narrative = getLocalFallbackNarrative(
+  const fallback = getLocalFallbackNarrative(
     location.name || "Delhi",
     current_aqi,
     risk_level,
     inversion_flag,
     profile.language || "en"
   );
-  let ai_generated = false;
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return { narrative, ai_generated };
+    return { narrative: fallback, ai_generated: false };
   }
 
-  const isHi = profile.language === "hi";
-  const isTa = profile.language === "ta";
+  const prompt = _buildNarrativePrompt(location, current_aqi, current_pm25, risk_level, risk_score, inversion_flag, profile);
+  const aiNarrative = await _fetchGeminiNarrative(apiKey, prompt);
 
-  try {
-    const prompt = `You are SaansSafe, a warm, scientifically grounded air quality assistant for families in India.
-Generate a structured family smog navigation narrative in ${isHi ? "Hindi (हिन्दी)" : isTa ? "Tamil (தமிழ்)" : "English"}.
-Use ONLY the following factual context:
-- Location: ${location.name || "Delhi"}
-- Current AQI: ${Math.round(current_aqi)}
-- PM2.5: ${Math.round(current_pm25)} µg/m³
-- Risk Level: ${risk_level} (Score ${risk_score}/100)
-- Inversion Flag: ${inversion_flag}
-- Profile: ${JSON.stringify(profile)}
-
-Return a strict JSON object with these keys:
-{
-  "headline": "concise headline mentioning location and smog advice",
-  "summary": "2 sentences explaining air conditions and immediate household health priority",
-  "family_tips": ["tip 1", "tip 2", "tip 3"],
-  "kid_and_elder_notes": ["vital protective note for kids/elders"],
-  "motivational_nudge": "inspiring, positive closing thought"
-}`;
-
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(2500),
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 350,
-            responseMimeType: "application/json",
-            thinkingConfig: { thinkingBudget: 0 },
-          },
-        }),
-      }
-    );
-
-    if (response.ok) {
-      const data = await response.json();
-      const rawJson = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (rawJson) {
-        const parsed = JSON.parse(rawJson);
-        if (parsed.headline && parsed.summary && Array.isArray(parsed.family_tips)) {
-          narrative = parsed;
-          ai_generated = true;
-          _narrativeCache.set(cacheKey, { narrative, ts: Date.now() });
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("Gemini call timed out or failed, using local deterministic fallback:", err);
+  if (aiNarrative) {
+    _narrativeCache.set(cacheKey, { narrative: aiNarrative, ts: Date.now() });
+    return { narrative: aiNarrative, ai_generated: true };
   }
 
-  return { narrative, ai_generated };
+  return { narrative: fallback, ai_generated: false };
 }

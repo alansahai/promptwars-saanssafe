@@ -252,6 +252,12 @@ async def fetch_all_data(lat: float, lon: float) -> tuple[dict, dict]:
     return aqi_data, weather_data
 
 
+def _safe_float_list(d: dict, key: str, n: int = 24) -> list[float]:
+    """Extract list of floats from a nested dict, replacing None with 0.0."""
+    vals = d.get(key, [])
+    return [float(v) if v is not None else 0.0 for v in vals[:n]]
+
+
 def extract_current_conditions(
     aqi_data: dict,
     weather_data: dict,
@@ -271,17 +277,12 @@ def extract_current_conditions(
     hourly_aqi = aqi_data.get("hourly", {})
     hourly_wx = weather_data.get("hourly", {})
 
-    def safe_list(d: dict, key: str, n: int = 24) -> list[float]:
-        vals = d.get(key, [])
-        # Replace None with 0
-        return [float(v) if v is not None else 0.0 for v in vals[:n]]
-
-    us_aqi_arr = safe_list(hourly_aqi, "us_aqi")
-    pm25_arr = safe_list(hourly_aqi, "pm2_5")
-    pm10_arr = safe_list(hourly_aqi, "pm10")
-    wind_arr = safe_list(hourly_wx, "wind_speed_10m")
-    temp_arr = safe_list(hourly_wx, "temperature_2m")
-    humidity_arr = safe_list(hourly_wx, "relative_humidity_2m")
+    us_aqi_arr = _safe_float_list(hourly_aqi, "us_aqi")
+    pm25_arr = _safe_float_list(hourly_aqi, "pm2_5")
+    pm10_arr = _safe_float_list(hourly_aqi, "pm10")
+    wind_arr = _safe_float_list(hourly_wx, "wind_speed_10m")
+    temp_arr = _safe_float_list(hourly_wx, "temperature_2m")
+    humidity_arr = _safe_float_list(hourly_wx, "relative_humidity_2m")
 
     idx = min(hour, len(us_aqi_arr) - 1) if us_aqi_arr else 0
 

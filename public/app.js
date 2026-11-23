@@ -139,17 +139,8 @@ function useGeolocation() {
 }
 
 // ===== ASSESSMENT CONTROLLER =====
-async function runAssessment() {
-  if (!state.location) {
-    alert("Please select a location first.");
-    return;
-  }
-
-  const form = $("#profile-form");
-  if (!form) return;
-
-  const fd = new FormData(form);
-  const profile = {
+function _extractProfileFromForm(fd) {
+  return {
     infants_children: parseInt(fd.get("infants_children"), 10) || 0,
     adults: parseInt(fd.get("adults"), 10) || 1,
     elderly: parseInt(fd.get("elderly"), 10) || 0,
@@ -168,9 +159,9 @@ async function runAssessment() {
     budget: fd.get("budget") || "medium",
     language: getLang(),
   };
-  state.profile = profile;
+}
 
-  // Show results section
+function _resetAssessmentUI() {
   const resultsSection = $("#results-section");
   show(resultsSection);
   show($("#loading-skeleton"));
@@ -179,8 +170,10 @@ async function runAssessment() {
   hide($("#error-banner"));
   hide($("#ai-badge"));
   hide($("#print-actions"));
+  resultsSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
-  // Reset & start progressive stage tracker
+function _startProgressTracker() {
   const fill = $("#assess-progress-fill");
   const s1 = $("#stage-1"), s2 = $("#stage-2"), s3 = $("#stage-3");
   if (fill) fill.style.width = "20%";
@@ -188,19 +181,42 @@ async function runAssessment() {
   if (s2) s2.className = "stage-step";
   if (s3) s3.className = "stage-step";
 
-  const tStage1 = setTimeout(() => {
+  const t1 = setTimeout(() => {
     if (fill) fill.style.width = "55%";
     if (s1) s1.className = "stage-step done";
     if (s2) s2.className = "stage-step active";
   }, 650);
 
-  const tStage2 = setTimeout(() => {
+  const t2 = setTimeout(() => {
     if (fill) fill.style.width = "88%";
     if (s2) s2.className = "stage-step done";
     if (s3) s3.className = "stage-step active";
   }, 1450);
 
-  resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  return {
+    finish: () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      if (fill) fill.style.width = "100%";
+      if (s1) s1.className = "stage-step done";
+      if (s2) s2.className = "stage-step done";
+      if (s3) s3.className = "stage-step done";
+    },
+  };
+}
+
+async function runAssessment() {
+  if (!state.location) {
+    alert("Please select a location first.");
+    return;
+  }
+  const form = $("#profile-form");
+  if (!form) return;
+
+  const profile = _extractProfileFromForm(new FormData(form));
+  state.profile = profile;
+  _resetAssessmentUI();
+  const tracker = _startProgressTracker();
 
   try {
     const res = await fetch(API.assess, {
@@ -209,13 +225,7 @@ async function runAssessment() {
       body: JSON.stringify({ location: state.location, profile }),
     });
 
-    clearTimeout(tStage1);
-    clearTimeout(tStage2);
-    if (fill) fill.style.width = "100%";
-    if (s1) s1.className = "stage-step done";
-    if (s2) s2.className = "stage-step done";
-    if (s3) s3.className = "stage-step done";
-
+    tracker.finish();
     await new Promise((r) => setTimeout(r, 200));
     hide($("#loading-skeleton"));
 
@@ -229,41 +239,34 @@ async function runAssessment() {
     state.assessment = data;
     renderAssessment(data);
   } catch (e) {
-    clearTimeout(tStage1);
-    clearTimeout(tStage2);
+    tracker.finish();
     hide($("#loading-skeleton"));
-    if (e.name === "TypeError") {
-      showError("Network error — please check your connection.");
-    } else {
-      showError("Something went wrong. Please try again.");
-    }
+    showError(e.name === "TypeError" ? "Network error — please check your connection." : "Something went wrong. Please try again.");
     console.error("Assessment error:", e);
   }
 }
 
-function renderAssessment(data) {
-  // AI status badge
+function _renderAiBadge(data) {
   const aiBadge = $("#ai-badge");
-  if (aiBadge) {
-    const txtEl = aiBadge.querySelector("#ai-badge-text");
-    if (txtEl) {
-      txtEl.textContent = data.ai_generated ? t("ai_powered") : "Rule-based guidance (AI unavailable)";
-    }
-    show(aiBadge);
+  if (!aiBadge) return;
+  const txtEl = aiBadge.querySelector("#ai-badge-text");
+  if (txtEl) {
+    txtEl.textContent = data.ai_generated ? t("ai_powered") : "Rule-based guidance (AI unavailable)";
   }
+  show(aiBadge);
+}
 
-  // Set hazard glow on gauge wrap
-  const aqi = data.current_aqi || 0;
+function _renderHeroCard(data, aqi) {
   let glowColor = "rgba(16, 185, 129, 0.4)";
   if (aqi > 300) glowColor = "rgba(185, 28, 28, 0.6)";
   else if (aqi > 200) glowColor = "rgba(168, 85, 247, 0.55)";
   else if (aqi > 150) glowColor = "rgba(239, 68, 68, 0.55)";
   else if (aqi > 100) glowColor = "rgba(249, 115, 22, 0.5)";
   else if (aqi > 50) glowColor = "rgba(234, 179, 8, 0.45)";
+
   const gaugeWrap = $(".gauge-wrap");
   if (gaugeWrap) gaugeWrap.style.setProperty("--hazard-glow", glowColor);
 
-  // Hero card with smooth animated sweep
   animateGauge(aqi, 850);
   animateValue($("#gauge-aqi-value"), 0, aqi, 850);
   renderRiskBadge(data);
@@ -282,8 +285,9 @@ function renderAssessment(data) {
     heroCard.classList.add("fade-in-up", "stagger-1");
     show(heroCard);
   }
+}
 
-  // Pollutants & Health Intelligence Grid
+function _renderPollutantsCard(data) {
   const pm25 = data.current_pm25 ?? 0;
   const pm10 = data.current_pm10 ?? 0;
   const cigs = (pm25 / 22).toFixed(1);
@@ -298,14 +302,9 @@ function renderAssessment(data) {
     $("#val-inversion").textContent = data.inversion_flag ? "High (Trapped)" : "Dispersed";
     show(pCard);
   }
+}
 
-  // Activity safety directives
-  updateActivityDirectives(data);
-
-  // Print date
-  $("#print-date").textContent = new Date().toLocaleDateString(getLang());
-
-  // Tab contents
+function _renderTabsAndActions(data) {
   renderHeatStrip(data.hourly_forecast || []);
   renderTimeline(data.timeline_tasks || []);
   renderTips(data.family_tips || [], data.kid_and_elder_notes || []);
@@ -339,68 +338,73 @@ function renderAssessment(data) {
     show(tabsWrap);
   }
   show($("#print-actions"));
-
-  // Set up simulator with current state
   renderSimActions(getAppState, API.simulate);
 }
 
-function updateActivityDirectives(data) {
+function renderAssessment(data) {
+  const aqi = data.current_aqi || 0;
+  _renderAiBadge(data);
+  _renderHeroCard(data, aqi);
+  _renderPollutantsCard(data);
+  updateActivityDirectives(data);
+  $("#print-date").textContent = new Date().toLocaleDateString(getLang());
+  _renderTabsAndActions(data);
+}
+
+function _updateWalkAndPlayDirectives(aqi) {
   const actWalk = $("#act-walk-status");
   const actPlay = $("#act-play-status");
-  const actVent = $("#act-vent-status");
-  const actMask = $("#act-mask-status");
 
   if (actWalk) {
-    if (data.current_aqi > 200) {
-      actWalk.textContent = "🚫 Avoid Running";
-      actWalk.className = "act-status status-danger";
-    } else if (data.current_aqi > 100) {
-      actWalk.textContent = "⚠️ Mild Walk Only";
-      actWalk.className = "act-status status-warning";
+    if (aqi > 200) {
+      actWalk.textContent = "🚫 Avoid Running"; actWalk.className = "act-status status-danger";
+    } else if (aqi > 100) {
+      actWalk.textContent = "⚠️ Mild Walk Only"; actWalk.className = "act-status status-warning";
     } else {
-      actWalk.textContent = "✅ Safe for Jogging";
-      actWalk.className = "act-status status-safe";
+      actWalk.textContent = "✅ Safe for Jogging"; actWalk.className = "act-status status-safe";
     }
   }
 
   if (actPlay) {
-    if (data.current_aqi > 150) {
-      actPlay.textContent = "🚫 Keep Indoors";
-      actPlay.className = "act-status status-danger";
-    } else if (data.current_aqi > 75) {
-      actPlay.textContent = "⚠️ Limit Duration";
-      actPlay.className = "act-status status-warning";
+    if (aqi > 150) {
+      actPlay.textContent = "🚫 Keep Indoors"; actPlay.className = "act-status status-danger";
+    } else if (aqi > 75) {
+      actPlay.textContent = "⚠️ Limit Duration"; actPlay.className = "act-status status-warning";
     } else {
-      actPlay.textContent = "✅ Safe Outdoor Play";
-      actPlay.className = "act-status status-safe";
+      actPlay.textContent = "✅ Safe Outdoor Play"; actPlay.className = "act-status status-safe";
     }
   }
+}
+
+function _updateVentAndMaskDirectives(aqi, inversion_flag) {
+  const actVent = $("#act-vent-status");
+  const actMask = $("#act-mask-status");
 
   if (actVent) {
-    if (data.inversion_flag || data.current_aqi > 200) {
-      actVent.textContent = "⚠️ 12 PM - 2 PM Only";
-      actVent.className = "act-status status-warning";
-    } else if (data.current_aqi > 100) {
-      actVent.textContent = "⚠️ Afternoon Airing";
-      actVent.className = "act-status status-warning";
+    if (inversion_flag || aqi > 200) {
+      actVent.textContent = "⚠️ 12 PM - 2 PM Only"; actVent.className = "act-status status-warning";
+    } else if (aqi > 100) {
+      actVent.textContent = "⚠️ Afternoon Airing"; actVent.className = "act-status status-warning";
     } else {
-      actVent.textContent = "✅ Open Freely";
-      actVent.className = "act-status status-safe";
+      actVent.textContent = "✅ Open Freely"; actVent.className = "act-status status-safe";
     }
   }
 
   if (actMask) {
-    if (data.current_aqi > 200) {
-      actMask.textContent = "😷 N95 Mandatory";
-      actMask.className = "act-status status-danger";
-    } else if (data.current_aqi > 100) {
-      actMask.textContent = "😷 N95 for Commute";
-      actMask.className = "act-status status-warning";
+    if (aqi > 200) {
+      actMask.textContent = "😷 N95 Mandatory"; actMask.className = "act-status status-danger";
+    } else if (aqi > 100) {
+      actMask.textContent = "😷 N95 for Commute"; actMask.className = "act-status status-warning";
     } else {
-      actMask.textContent = "✅ Mask Optional";
-      actMask.className = "act-status status-safe";
+      actMask.textContent = "✅ Mask Optional"; actMask.className = "act-status status-safe";
     }
   }
+}
+
+function updateActivityDirectives(data) {
+  const aqi = data.current_aqi || 0;
+  _updateWalkAndPlayDirectives(aqi);
+  _updateVentAndMaskDirectives(aqi, data.inversion_flag);
 }
 
 function showError(msg) {
@@ -484,23 +488,7 @@ function loadDemo() {
   runAssessment();
 }
 
-function initA11yToggles() {
-  const btnLarge = $("#btn-large-text");
-  const btnHC = $("#btn-high-contrast");
-  const btnTheme = $("#btn-theme-toggle");
-
-  btnLarge?.addEventListener("click", () => {
-    const isLarge = document.documentElement.dataset.large === "true";
-    document.documentElement.dataset.large = isLarge ? "false" : "true";
-    btnLarge.setAttribute("aria-pressed", String(!isLarge));
-  });
-
-  btnHC?.addEventListener("click", () => {
-    const isHC = document.documentElement.dataset.hc === "true";
-    document.documentElement.dataset.hc = isHC ? "false" : "true";
-    btnHC.setAttribute("aria-pressed", String(!isHC));
-  });
-
+function _initThemeToggle(btnTheme) {
   const updateThemeUI = (theme) => {
     const icon = btnTheme?.querySelector(".theme-icon");
     if (icon) icon.textContent = theme === "dark" ? "🌙" : "☀️";
@@ -527,25 +515,37 @@ function initA11yToggles() {
   });
 }
 
-// ===== BOOTSTRAP INITIALIZATION =====
-async function init() {
-  applyTranslations();
-  initTabs();
-  initA11yToggles();
-  initAmbientCanvas();
+function initA11yToggles() {
+  const btnLarge = $("#btn-large-text");
+  const btnHC = $("#btn-high-contrast");
+  const btnTheme = $("#btn-theme-toggle");
 
-  // Language switcher
+  btnLarge?.addEventListener("click", () => {
+    const isLarge = document.documentElement.dataset.large === "true";
+    document.documentElement.dataset.large = isLarge ? "false" : "true";
+    btnLarge.setAttribute("aria-pressed", String(!isLarge));
+  });
+
+  btnHC?.addEventListener("click", () => {
+    const isHC = document.documentElement.dataset.hc === "true";
+    document.documentElement.dataset.hc = isHC ? "false" : "true";
+    btnHC.setAttribute("aria-pressed", String(!isHC));
+  });
+
+  _initThemeToggle(btnTheme);
+}
+
+// ===== BOOTSTRAP INITIALIZATION =====
+function _bindLocationEvents() {
   $("#lang-select")?.addEventListener("change", (e) => {
     setLang(e.target.value);
     applyTranslations();
     if (state.profile) state.profile.language = getLang();
   });
 
-  // City search autocomplete
   $("#city-search")?.addEventListener("input", (e) => debouncedGeocode(e.target.value));
   $("#city-search")?.addEventListener("blur", () => setTimeout(() => hide($("#city-suggestions")), 150));
 
-  // Quick city hotspot chips
   $$(".city-chip").forEach((chip) => {
     chip.addEventListener("click", () => {
       const city = chip.getAttribute("data-city");
@@ -564,21 +564,20 @@ async function init() {
     });
   });
 
-  // Geolocation & Demo buttons
   $("#btn-geolocate")?.addEventListener("click", useGeolocation);
   $("#btn-demo")?.addEventListener("click", loadDemo);
+}
 
-  // Profile form submission
+function _bindFormAndRetryEvents() {
   $("#profile-form")?.addEventListener("submit", (e) => {
     e.preventDefault();
     runAssessment();
   });
-
-  // Retry & Read Aloud
   $("#btn-retry")?.addEventListener("click", runAssessment);
   $("#btn-read-aloud")?.addEventListener("click", readAloud);
+}
 
-  // Chat
+function _bindChatEvents() {
   initChat();
   $("#btn-clear-chat")?.addEventListener("click", () => {
     const container = $("#chat-messages");
@@ -590,8 +589,6 @@ async function init() {
   $("#chat-input")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") sendChat(getAppState, API.chat);
   });
-
-  // Chat suggestion chips
   $$(".chat-chip").forEach((btn) => {
     btn.addEventListener("click", () => {
       const input = $("#chat-input");
@@ -601,41 +598,31 @@ async function init() {
       }
     });
   });
+}
 
-  // Print plan
+function _bindSummaryAndPrintEvents() {
   $("#btn-print-plan")?.addEventListener("click", () => window.print());
 
-  // Copy Protocol Summary
   $("#btn-copy-summary")?.addEventListener("click", () => {
     if (!state.assessment) return;
     const a = state.assessment;
     const city = state.location?.city_name || "Delhi";
-    const text = `📋 SaansSafe Family Smog Protocol — ${city}
-Date: ${new Date().toLocaleDateString(getLang())}
-Current AQI: ${Math.round(a.current_aqi)} (${a.risk_level} Risk)
-PM2.5: ${Math.round(a.current_pm25)} µg/m³
-
-Headline: ${a.headline}
-Summary: ${a.summary}
-
-Top Family Actions:
-${(a.family_tips || []).map((t, i) => `${i + 1}. ${t}`).join("\n")}
-
-Protect Your Lungs with SaansSafe: https://promptwars-saanssafe.vercel.app/`;
+    const text = `📋 SaansSafe Family Smog Protocol — ${city}\nDate: ${new Date().toLocaleDateString(getLang())}\nCurrent AQI: ${Math.round(a.current_aqi)} (${a.risk_level} Risk)\nPM2.5: ${Math.round(a.current_pm25)} µg/m³\n\nHeadline: ${a.headline}\nSummary: ${a.summary}\n\nTop Family Actions:\n${(a.family_tips || []).map((t, i) => `${i + 1}. ${t}`).join("\n")}\n\nProtect Your Lungs with SaansSafe: https://promptwars-saanssafe.vercel.app/`;
 
     navigator.clipboard.writeText(text).then(() => {
       const btn = $("#btn-copy-summary");
       if (btn) {
-        const orig = btn.innerHTML;
-        btn.innerHTML = "<span>✅ Protocol Copied!</span>";
-        setTimeout(() => { btn.innerHTML = orig; }, 2200);
+        const origText = btn.textContent;
+        btn.textContent = "✅ Protocol Copied!";
+        setTimeout(() => { btn.textContent = origText; }, 2200);
       }
     }).catch(() => {
       alert("Protocol copied to clipboard!");
     });
   });
+}
 
-  // Check Gemini service availability
+async function _checkGeminiHealth() {
   try {
     const res = await fetch(API.health);
     if (res.ok) {
@@ -645,6 +632,19 @@ Protect Your Lungs with SaansSafe: https://promptwars-saanssafe.vercel.app/`;
   } catch {
     /* health check optional */
   }
+}
+
+async function init() {
+  applyTranslations();
+  initTabs();
+  initA11yToggles();
+  initAmbientCanvas();
+
+  _bindLocationEvents();
+  _bindFormAndRetryEvents();
+  _bindChatEvents();
+  _bindSummaryAndPrintEvents();
+  await _checkGeminiHealth();
 }
 
 // Bootstrap
