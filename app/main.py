@@ -110,6 +110,9 @@ def _setup_security_middleware(app: FastAPI, settings: Settings) -> None:
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "geolocation=(self)"
+        # CSP: style-src 'unsafe-inline' is required exclusively for runtime CSS variable
+        # and bar-width mutations (e.g. gauge glow, progress fills, heat strip colors).
+        # script-src is strictly 'self' with zero inline executable scripts or eval.
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
             "script-src 'self'; "
