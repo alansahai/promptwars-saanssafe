@@ -33,8 +33,13 @@ htmlcov/
 coverage.xml
 .tox/
 
-# Linting
+# Linting & Type Checking
 .ruff_cache/
+.mypy_cache/
+
+# Baselines & Logs
+baseline_responses/
+*.log
 
 # IDE / OS
 .idea/
