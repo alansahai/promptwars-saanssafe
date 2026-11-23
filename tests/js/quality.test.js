@@ -81,4 +81,46 @@ describe("Architectural Code Quality & Function Boundaries", () => {
       `JavaScript functions exceeding 40 lines:\n${violations.join("\n")}`
     );
   });
+
+  it("should enforce complete ban on innerHTML, outerHTML, insertAdjacentHTML, and eval in executable code", () => {
+    const targetDirs = [
+      path.join(ROOT_DIR, "api"),
+      path.join(ROOT_DIR, "public", "js"),
+      path.join(ROOT_DIR, "public"),
+    ];
+
+    const jsFiles = [];
+    for (const d of targetDirs) {
+      if (fs.existsSync(d)) {
+        if (d.endsWith("public")) {
+          const appJs = path.join(d, "app.js");
+          if (fs.existsSync(appJs)) jsFiles.push(appJs);
+        } else {
+          jsFiles.push(...getJsFiles(d));
+        }
+      }
+    }
+
+    const bannedPattern = /\b(innerHTML|outerHTML|insertAdjacentHTML|eval\s*\()\b/;
+    const violations = [];
+
+    for (const file of [...new Set(jsFiles)]) {
+      const content = fs.readFileSync(file, "utf8");
+      const lines = content.split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line.startsWith("*") || line.startsWith("//") || line.startsWith("/*")) continue;
+        if (bannedPattern.test(line)) {
+          const rel = path.relative(ROOT_DIR, file);
+          violations.push(`${rel}:${i + 1} uses banned DOM/eval pattern: ${line}`);
+        }
+      }
+    }
+
+    assert.equal(
+      violations.length,
+      0,
+      `Banned unsafe patterns detected:\n${violations.join("\n")}`
+    );
+  });
 });
