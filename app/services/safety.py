@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
-from fastapi import HTTPException
+from app.exceptions import PromptInjectionError
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -75,18 +75,17 @@ def sanitise_text(text: str, max_length: int = MAX_CHAT_INPUT_LENGTH) -> str:
 
 
 def check_injection(text: str) -> None:
-    """Raise HTTPException 400 if the text contains prompt-injection patterns.
+    """Raise PromptInjectionError if the text contains prompt-injection patterns.
 
     Args:
         text: Sanitised user input to check.
 
     Raises:
-        HTTPException: 400 Bad Request if injection detected.
+        PromptInjectionError: If prompt-injection patterns are detected.
     """
     if _INJECTION_RE.search(text):
-        raise HTTPException(
-            status_code=400,
-            detail="Input contains disallowed patterns. Please rephrase your question.",
+        raise PromptInjectionError(
+            "Input contains disallowed patterns. Please rephrase your question."
         )
 
 
@@ -118,7 +117,7 @@ def sanitise_and_check(text: str, max_length: int = MAX_CHAT_INPUT_LENGTH) -> st
         Cleaned text safe for use.
 
     Raises:
-        HTTPException: 400 if injection detected.
+        PromptInjectionError: If injection patterns are detected.
     """
     cleaned = sanitise_text(text, max_length)
     check_injection(cleaned)

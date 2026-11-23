@@ -26,6 +26,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import router
 from app.config import Settings, get_settings
+from app.exceptions import PromptInjectionError
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -131,6 +132,20 @@ def _mount_static_files(app: FastAPI) -> None:
                 logger.warning("Could not mount static files: %s", e)
 
 
+def _setup_exception_handlers(app: FastAPI) -> None:
+    """Register application-level domain exception handlers."""
+
+    @app.exception_handler(PromptInjectionError)
+    async def prompt_injection_handler(
+        _request: Request, exc: PromptInjectionError
+    ) -> JSONResponse:
+        """Translate domain prompt injection errors into HTTP 400 responses."""
+        return JSONResponse(
+            status_code=400,
+            content={"detail": str(exc)},
+        )
+
+
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application.
 
@@ -150,6 +165,7 @@ def create_app() -> FastAPI:
 
     _setup_base_middleware(app, settings)
     _setup_security_middleware(app, settings)
+    _setup_exception_handlers(app)
     app.include_router(router)
     _mount_static_files(app)
 
