@@ -40,7 +40,7 @@ class Settings(BaseSettings):
 
                 try:
                     return json.loads(v_str)
-                except Exception:
+                except (json.JSONDecodeError, ValueError, TypeError):
                     pass
             return [x.strip() for x in v_str.split(",") if x.strip()]
         return v

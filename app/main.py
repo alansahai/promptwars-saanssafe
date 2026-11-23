@@ -17,6 +17,7 @@ import os
 import time
 from collections import defaultdict
 from collections.abc import Callable
+from pathlib import Path
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -123,12 +124,12 @@ def _setup_security_middleware(app: FastAPI, settings: Settings) -> None:
 def _mount_static_files(app: FastAPI) -> None:
     """Mount static frontend assets when not running in serverless environment."""
     if not os.environ.get("VERCEL"):
-        public_dir = os.path.join(os.path.dirname(__file__), "..", "public")
-        if os.path.isdir(public_dir):
+        public_dir = Path(__file__).resolve().parent.parent / "public"
+        if public_dir.is_dir():
             try:
-                app.mount("/", StaticFiles(directory=public_dir, html=True), name="static")
+                app.mount("/", StaticFiles(directory=str(public_dir), html=True), name="static")
                 logger.info("Serving static files from %s", public_dir)
-            except Exception as e:
+            except RuntimeError as e:
                 logger.warning("Could not mount static files: %s", e)
 
 

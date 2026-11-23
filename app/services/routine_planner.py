@@ -8,6 +8,19 @@ from __future__ import annotations
 
 from typing import TypedDict
 
+from app.constants import (
+    AFTERNOON_PLAY_WINDOW_END,
+    AFTERNOON_PLAY_WINDOW_START,
+    CAUTION_AQI_THRESHOLD,
+    EVENING_INVERSION_WINDOW_END,
+    EVENING_INVERSION_WINDOW_START,
+    MORNING_WINDOW_END,
+    MORNING_WINDOW_START,
+    SAFE_AQI_THRESHOLD,
+    UNHEALTHY_AQI_THRESHOLD,
+    VENTILATION_WINDOW_END,
+    VENTILATION_WINDOW_START,
+)
 from app.schemas import HourlyAQI, HouseholdProfile
 
 
@@ -22,8 +35,8 @@ class TimelineTask(TypedDict):
 
 
 # AQI thresholds for tagging
-_SAFE_AQI = 100.0
-_CAUTION_AQI = 150.0
+_SAFE_AQI = SAFE_AQI_THRESHOLD
+_CAUTION_AQI = CAUTION_AQI_THRESHOLD
 
 
 def tag_hour(aqi: float) -> str:
@@ -115,11 +128,11 @@ def _mask_recommendation(aqi: float) -> str:
     Returns:
         Human-readable mask recommendation.
     """
-    if aqi <= 100:
+    if aqi <= SAFE_AQI_THRESHOLD:
         return "No mask required for most people."
-    if aqi <= 150:
+    if aqi <= CAUTION_AQI_THRESHOLD:
         return "Sensitive groups should wear an N95/FFP2 mask outdoors."
-    if aqi <= 200:
+    if aqi <= UNHEALTHY_AQI_THRESHOLD:
         return (
             "Wear a well-fitted N95/FFP2 mask outdoors. Cloth masks offer minimal PM2.5 protection."
         )
@@ -133,7 +146,9 @@ def _plan_morning_exercise(
     """Determine morning exercise recommendation based on 05:00-10:00 AQI."""
     if not profile.morning_walker_jogger:
         return None
-    best_morning, best_aqi = _find_best_window(hourly, 5, 10)
+    best_morning, best_aqi = _find_best_window(
+        hourly, MORNING_WINDOW_START, MORNING_WINDOW_END
+    )
     if best_aqi <= _SAFE_AQI:
         return TimelineTask(
             time=f"{best_morning:02d}:00",
@@ -202,7 +217,9 @@ def _plan_commute(
 
 def _plan_ventilation(hourly: list[HourlyAQI]) -> TimelineTask:
     """Determine the optimal ventilation schedule for airing out indoor quarters."""
-    best_vent, vent_aqi = _find_best_window(hourly, 11, 16)
+    best_vent, vent_aqi = _find_best_window(
+        hourly, VENTILATION_WINDOW_START, VENTILATION_WINDOW_END
+    )
     if vent_aqi <= _SAFE_AQI:
         return TimelineTask(
             time=f"{best_vent:02d}:00",
@@ -233,7 +250,9 @@ def _plan_evening_inversion(
     profile: HouseholdProfile,
 ) -> TimelineTask | None:
     """Determine evening smog peak countermeasures."""
-    worst_evening, worst_aqi = _find_worst_window(hourly, 17, 22)
+    worst_evening, worst_aqi = _find_worst_window(
+        hourly, EVENING_INVERSION_WINDOW_START, EVENING_INVERSION_WINDOW_END
+    )
     if worst_aqi <= _SAFE_AQI:
         return None
     purifier_task = (
@@ -257,7 +276,9 @@ def _plan_kids_play(
     """Determine outdoor afternoon play guidelines for children."""
     if profile.infants_children <= 0 and not profile.school_run:
         return None
-    best_play, play_aqi = _find_best_window(hourly, 14, 18)
+    best_play, play_aqi = _find_best_window(
+        hourly, AFTERNOON_PLAY_WINDOW_START, AFTERNOON_PLAY_WINDOW_END
+    )
     icon = "🧒" if play_aqi <= _SAFE_AQI else "⚠️"
     play_advice = (
         f"Outdoor play OK at {best_play}:00 (AQI {play_aqi:.0f})"

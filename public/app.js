@@ -20,6 +20,8 @@ import { renderSimActions, runSimulation } from "./js/simulator.js?v=20261122_v4
 import { initChat, sendChat } from "./js/chat.js?v=20261122_v4_ultracard";
 
 // ===== CONSTANTS =====
+const BERKELEY_EARTH_PM25_FACTOR = 22.0;
+
 const API = {
   health: "/api/health",
   geocode: "/api/geocode",
@@ -290,7 +292,7 @@ function _renderHeroCard(data, aqi) {
 function _renderPollutantsCard(data) {
   const pm25 = data.current_pm25 ?? 0;
   const pm10 = data.current_pm10 ?? 0;
-  const cigs = (pm25 / 22).toFixed(1);
+  const cigs = (pm25 / BERKELEY_EARTH_PM25_FACTOR).toFixed(1);
   const pCard = $("#pollutants-card");
   if (pCard) {
     pCard.classList.remove("fade-in-up", "stagger-2");
