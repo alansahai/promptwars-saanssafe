@@ -3,8 +3,9 @@
 > **Your Family's Urban Smog Navigation Assistant** — Personalised air quality intelligence, low-exposure daily routines, verified indoor air quality hacks, sustainable commute alternatives, and grounded GenAI consultation tailored for urban families navigating severe winter smog.
 
 [![CI](https://github.com/alansahai/promptwars-saanssafe/actions/workflows/ci.yml/badge.svg)](https://github.com/alansahai/promptwars-saanssafe/actions/workflows/ci.yml)
-[![Tests: 166 passing](https://img.shields.io/badge/tests-166_passing-success.svg)](https://github.com/alansahai/promptwars-saanssafe/actions)
-[![Coverage: 92%](https://img.shields.io/badge/coverage-92%25-brightgreen.svg)](https://github.com/alansahai/promptwars-saanssafe)
+[![Tests: 183 passing](https://img.shields.io/badge/tests-183_passing-success.svg)](https://github.com/alansahai/promptwars-saanssafe/actions)
+[![Coverage: 95%](https://img.shields.io/badge/coverage-95%25-brightgreen.svg)](https://github.com/alansahai/promptwars-saanssafe)
+[![Code Quality: AST Gated](https://img.shields.io/badge/code_quality-AST_Gated_(<=40_lines)-blue.svg)](tests/test_code_quality.py)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -247,45 +248,54 @@ Open your browser at **`http://localhost:8000`**. Interactive API documentation 
 
 ---
 
-## 🧪 Testing & Code Quality
+## 🧪 Testing, Code Quality & Engineering Gates
 
-SaansSafe maintains test coverage across the calculation engines, API endpoints, and safety subsystems:
+SaansSafe enforces rigorous automated testing and architectural code quality gates:
+- **Total Test Suite**: **183 automated tests** (164 pytest tests with 95% statement coverage + 19 native Node.js tests).
+- **Dual-Runtime Validation**: Complete unit, integration, and cross-runtime parity coverage across Python and Node.js.
 
 ```bash
-# Run code linting and formatting verification
+# 1. Run Python linters, static type checks, and full test suite with coverage
 ruff check .
-ruff format --check .
-
-# Execute full automated test suite with coverage
+mypy app
 pytest -q --cov=app --cov-report=term-missing
 
-# Run end-to-end smoke verification against a live server
+# 2. Run Node.js test suite and code quality gates
+node --test tests/js/*.test.js
+npm test
+
+# 3. Run end-to-end smoke verification against a live server
 python scripts/smoke_test.py http://localhost:8000
 ```
 
-### Test Suite Overview:
-- `test_risk_engine.py`: Multiplier bounds, inversion edge cases, vulnerability compounding limits.
-- `test_routine_planner.py`: Hourly forecast parsing, peak stagnation window detection.
-- `test_impact.py`: Mathematical verification of WHO inhalation doses and transport emission factors.
-- `test_recommendations.py`: Budget filtering, home profile matching, risk-dependent ranking.
-- `test_safety.py`: Prompt injection pattern filters, control character sanitization.
-- `test_llm_fallback.py`: Upstream failure fallback verification, JSON schema compliance.
-- `test_api.py`: Route validation, error codes, and rate limiting middleware.
+### Architectural Quality Gates & Safeguards:
+- **AST Line Length Gate (`test_code_quality.py` & `quality.test.js`)**: Walks the entire AST of `app/`, `api/`, and `public/js/` to enforce that no function or method exceeds 40 source lines.
+- **100% Docstring Coverage (`test_code_quality.py`)**: Enforces non-empty docstrings for every public module, class, and function.
+- **Strict DOM Safety Gate (`quality.test.js`)**: Complete ban on `innerHTML`, `outerHTML`, `insertAdjacentHTML`, and `eval()`. All UI rendering uses safe DOM node creation.
+- **Catalog Parity Contract (`test_catalog_parity.py`)**: Guarantees identical numerical factors and schema fields between Python data services and Node edge handlers.
+- **Decoupled Architecture**: Domain services (`safety.py`, `risk_engine.py`) are strictly decoupled from transport frameworks via domain exceptions (`PromptInjectionError`).
 
 ---
 
-## 🌐 Deployment
+## 🌐 Deployment & Runtime Topology
 
-The application is structured for instant deployment to serverless platforms (e.g., Vercel, Render, Docker):
+SaansSafe uses a **hybrid dual-runtime topology** optimized for serverless edge performance and robust local development:
+
+1. **Production Edge (Vercel)**:
+   - Client SPA assets (`public/`) are served directly from Vercel's global CDN edge with strict cache invalidation headers.
+   - Serverless API endpoints (`api/*.js`) execute on lightweight Node.js runtime with sub-10ms cold starts, handling `/api/health`, `/api/geocode`, `/api/assess`, `/api/simulate`, and `/api/chat`.
+2. **Local Development & Reference Engine (FastAPI)**:
+   - FastAPI in `app/main.py` provides the reference ASGI application, powers the comprehensive Python test suite (164 tests, 95% coverage), and serves interactive OpenAPI documentation (`/api/docs`).
+   - The ASGI bridge `api/index.py` enables running the FastAPI stack on serverless containers when desired.
 
 ### Deploying to Vercel
 1. Import the repository at [vercel.com/new](https://vercel.com/new).
 2. Framework Preset: **Other**.
 3. Configure Environment Variables:
-   - `GEMINI_API_KEY` (optional)
+   - `GEMINI_API_KEY` (optional; deterministic fallback active if unset)
    - `GEMINI_MODEL` (`gemini-2.5-flash`)
    - `ENVIRONMENT` (`production`)
-4. Deploy. Static assets in `public/` are served at the CDN edge while backend routes route to `api/index.py`.
+4. Deploy. Edge serverless functions in `api/` and static assets in `public/` deploy automatically.
 
 ---
 
@@ -330,8 +340,8 @@ promptwars-saanssafe/
 │   ├── styles.css            # Responsive stylesheet with dark/light/contrast modes
 │   └── i18n.js               # Localization dictionary (EN, HI, TA)
 ├── tests/
-│   ├── js/                   # Node.js automated test runner (14 tests)
-│   └── test_*.py             # Python Pytest test suites (152 tests, 92% coverage)
+│   ├── js/                   # Node.js automated test runner (19 tests)
+│   └── test_*.py             # Python Pytest test suites (164 tests, 95% coverage)
 ├── docs/
 │   ├── ARCHITECTURE.md       # Detailed technical design document
 │   └── SUBMISSION_ANSWERS.md # Reference guide
