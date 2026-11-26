@@ -112,7 +112,9 @@ async def run_full_assessment(body: AssessRequest) -> AssessmentResponse:
     hacks = recommendations.get_indoor_hacks(profile, risk_result.risk_level)
     alternatives = recommendations.get_sustainable_alternatives(profile)
 
-    gemini_context = _build_gemini_context(body.location.city_name, risk_result, conditions, profile)
+    gemini_context = _build_gemini_context(
+        body.location.city_name, risk_result, conditions, profile
+    )
     narrative, ai_generated = await _synthesize_narrative(gemini_context, profile.language)
 
     return _build_assessment_response(

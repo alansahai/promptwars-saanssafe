@@ -381,4 +381,3 @@ def test_air_data_cache_ttl_and_eviction():
     ts, val = _air_data_module._cache[key]
     _air_data_module._cache[key] = (ts - 10000.0, val)
     assert _air_data_module._cache_get(key) is None
-

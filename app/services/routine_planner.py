@@ -146,9 +146,7 @@ def _plan_morning_exercise(
     """Determine morning exercise recommendation based on 05:00-10:00 AQI."""
     if not profile.morning_walker_jogger:
         return None
-    best_morning, best_aqi = _find_best_window(
-        hourly, MORNING_WINDOW_START, MORNING_WINDOW_END
-    )
+    best_morning, best_aqi = _find_best_window(hourly, MORNING_WINDOW_START, MORNING_WINDOW_END)
     if best_aqi <= _SAFE_AQI:
         return TimelineTask(
             time=f"{best_morning:02d}:00",
@@ -303,11 +301,7 @@ def _plan_bedtime(
 ) -> TimelineTask:
     """Determine night-time indoor air shielding guidelines."""
     night_hours = [h for h in hourly if h.hour >= 22 or h.hour < 6]
-    night_avg = (
-        sum(h.aqi for h in night_hours) / max(1, len(night_hours))
-        if night_hours
-        else 100.0
-    )
+    night_avg = sum(h.aqi for h in night_hours) / max(1, len(night_hours)) if night_hours else 100.0
     if profile.has_purifier:
         return TimelineTask(
             time="22:00",

@@ -74,4 +74,6 @@ def test_indoor_measures_non_negative_reduction() -> None:
     for m in MEASURES:
         assert m["id"], "Measure must have an ID"
         assert m["title"], "Measure must have a title"
-        assert m["pm25_reduction_pct"] >= 0.0, f"Measure {m['id']} has invalid negative PM2.5 reduction"
+        assert (
+            m["pm25_reduction_pct"] >= 0.0
+        ), f"Measure {m['id']} has invalid negative PM2.5 reduction"

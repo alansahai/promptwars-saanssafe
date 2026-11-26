@@ -284,9 +284,7 @@ def generate_chat_reply(
 # ---------------------------------------------------------------------------
 
 
-def _get_fallback_headline_and_summary(
-    risk_level: str, aqi: float, city: str
-) -> tuple[str, str]:
+def _get_fallback_headline_and_summary(risk_level: str, aqi: float, city: str) -> tuple[str, str]:
     """Retrieve templated headline and summary based on risk level."""
     headline_map = {
         "Low": f"Air quality is good in {city} today! 🌿",

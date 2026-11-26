@@ -40,7 +40,11 @@ def test_public_symbols_have_docstrings() -> None:
             missing.append(f"{rel_path}: Module docstring is missing")
 
         for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef) and not node.name.startswith("_") and not ast.get_docstring(node):
+            if (
+                isinstance(node, ast.ClassDef)
+                and not node.name.startswith("_")
+                and not ast.get_docstring(node)
+            ):
                 missing.append(f"{rel_path}:{node.lineno} Class '{node.name}' docstring missing")
             elif (
                 isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)

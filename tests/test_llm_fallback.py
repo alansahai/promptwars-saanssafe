@@ -183,7 +183,9 @@ def test_generate_narrative_success():
         mock_client.models.generate_content.return_value = mock_resp
         mock_client_fn.return_value = mock_client
 
-        res = generate_assessment_narrative({"risk_level": "High", "current_aqi": 210}, language="en")
+        res = generate_assessment_narrative(
+            {"risk_level": "High", "current_aqi": 210}, language="en"
+        )
         assert res is not None
         assert res["headline"] == "High Smog Alert"
         assert len(res["family_tips"]) == 1
@@ -198,7 +200,9 @@ def test_generate_narrative_empty_text_returns_none():
         mock_client.models.generate_content.return_value = mock_resp
         mock_client_fn.return_value = mock_client
 
-        res = generate_assessment_narrative({"risk_level": "High", "current_aqi": 210}, language="en")
+        res = generate_assessment_narrative(
+            {"risk_level": "High", "current_aqi": 210}, language="en"
+        )
         assert res is None
 
 
@@ -236,4 +240,3 @@ def test_generate_chat_exception_returns_none():
             language="en",
         )
         assert reply is None
-

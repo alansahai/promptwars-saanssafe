@@ -248,8 +248,7 @@ def _is_measure_applicable(
     if m["id"] == "air_purifier_placement" and not has_purifier:
         return False
     return not (
-        m["id"] == "switch_to_induction"
-        and cooking_fuel not in ("firewood_biomass", "lpg")
+        m["id"] == "switch_to_induction" and cooking_fuel not in ("firewood_biomass", "lpg")
     )
 
 

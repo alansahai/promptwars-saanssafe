@@ -213,7 +213,9 @@ def _compute_commute_modifier(
 def _check_cooking_fuel(fuel: str) -> tuple[float, RiskReason | None]:
     """Check indoor exposure penalty based on domestic cooking fuel."""
     if fuel == "firewood_biomass":
-        msg = "Biomass/firewood cooking produces very high indoor PM2.5 (200–1000 µg/m³ near stove)."
+        msg = (
+            "Biomass/firewood cooking produces very high indoor PM2.5 (200–1000 µg/m³ near stove)."
+        )
         return 8.0, RiskReason(factor="biomass_cooking", weight=8.0, description=msg)
     if fuel == "lpg":
         msg = "LPG combustion adds moderate indoor PM2.5 and NO2. Kitchen exhaust use greatly reduces this."

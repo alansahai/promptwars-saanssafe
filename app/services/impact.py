@@ -164,9 +164,7 @@ def _get_simulation_assumptions_and_formula() -> tuple[list[str], str]:
     return assumptions, formula
 
 
-def _calculate_co2e_metric(
-    before_co2e: float, after_co2e: float
-) -> tuple[float, float]:
+def _calculate_co2e_metric(before_co2e: float, after_co2e: float) -> tuple[float, float]:
     """Compute annual CO2e savings in kg and equivalent km not driven."""
     saved_g = (before_co2e - after_co2e) * 52.0
     saved_kg = round(saved_g / 1000.0, 1)
@@ -193,9 +191,7 @@ def simulate_impact(
         profile, enabled_ids, outdoor_pm25
     )
 
-    after_dose = _compute_daily_dose_ug(
-        eff_pm25, mod_prof, commute_minutes, new_commute
-    )
+    after_dose = _compute_daily_dose_ug(eff_pm25, mod_prof, commute_minutes, new_commute)
     after_co2e = _compute_weekly_co2e(mod_prof)
 
     saved_kg, equiv_km = _calculate_co2e_metric(before_co2e, after_co2e)
