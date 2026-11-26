@@ -56,6 +56,7 @@ jobs:
 
       - name: Check repo size < 10 MB
         run: |
+          rm -rf .mypy_cache .ruff_cache .pytest_cache .coverage
           SIZE=$(du -sm . | cut -f1)
           echo "Repo size: ${SIZE} MB"
           [ "$SIZE" -lt 10 ] || (echo "Repo exceeds 10 MB limit!" && exit 1)
